@@ -57,6 +57,7 @@ private:
     static constexpr uint32_t LED_BRIGHTNESS_BASE = 0x20005404u;
     static constexpr uint32_t LED_CYCLE_BASE = 0x20005408u;
     static constexpr uint32_t LED_ON_TIME_BASE = 0x2000540cu;
+    static constexpr uint32_t LED_BOOT_FINISH = 0x20005440u;
     static constexpr uint32_t LED_RGB_BASE = 0x20005444u;
     static constexpr uint8_t LED_COUNT = 4;
 
@@ -66,6 +67,7 @@ private:
     bool _sio_ports_requested = false;
     bool _ec_ports_requested = false;
     bool _ready = false;
+    bool _led_control_claimed = false;
     int _lock_fd = -1;
     uint16_t _chip_id = 0;
     uint16_t _revision = 0;
@@ -84,6 +86,7 @@ private:
     int read8(uint32_t address, uint8_t& value);
     int write8(uint32_t address, uint8_t value);
     int write_verified(uint32_t address, uint8_t value);
+    int ensure_led_control(uint8_t id);
     int set_mode(uint8_t id, uint8_t mode, uint16_t t_on, uint16_t t_off);
     bool valid_led(uint8_t id) const { return id < LED_COUNT; }
     int fail(int error, const std::string& message);

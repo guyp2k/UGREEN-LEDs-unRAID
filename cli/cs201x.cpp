@@ -83,6 +83,7 @@ int cs201x_device_t::acquire_lock() {
 
 void cs201x_device_t::cleanup() {
     _ready = false;
+    _led_control_claimed = false;
 
     if (_ec_ports_requested) {
         _port_io->release(_ec_base, 9);
@@ -249,6 +250,25 @@ int cs201x_device_t::write_verified(uint32_t address, uint8_t value) {
     return 0;
 }
 
+int cs201x_device_t::ensure_led_control(uint8_t id) {
+    if (!valid_led(id))
+        return -EINVAL;
+    if (id == 0 || _led_control_claimed)
+        return 0;
+
+    // The EC boot sequencer owns the network and disk LEDs until the vendor
+    // startup path writes this handoff. It must remain set after CLI exit so
+    // that the requested LED state stays visible.
+    int error = write8(LED_BOOT_FINISH, 1);
+    if (error < 0) {
+        _last_error = "cannot hand CS201x LEDs over from the boot sequencer";
+        return error;
+    }
+
+    _led_control_claimed = true;
+    return 0;
+}
+
 int cs201x_device_t::get_status(uint8_t id, led_status_t& status) {
     if (!valid_led(id))
         return -EINVAL;
@@ -291,7 +311,11 @@ int cs201x_device_t::set_mode(uint8_t id, uint8_t mode,
         return -ERANGE;
     }
 
-    int error = write_verified(LED_MODE_BASE + id, mode);
+    int error = ensure_led_control(id);
+    if (error < 0)
+        return error;
+
+    error = write_verified(LED_MODE_BASE + id, mode);
     if (error < 0)
         return error;
     error = write_verified(LED_CYCLE_BASE + id,
@@ -311,8 +335,12 @@ int cs201x_device_t::set_rgb(uint8_t id, uint8_t red, uint8_t green,
     if (!valid_led(id))
         return -EINVAL;
 
+    int error = ensure_led_control(id);
+    if (error < 0)
+        return error;
+
     uint32_t rgb_base = LED_RGB_BASE + 4u * id;
-    int error = write_verified(rgb_base, blue);
+    error = write_verified(rgb_base, blue);
     if (error < 0)
         return error;
     error = write_verified(rgb_base + 1, red);
@@ -328,6 +356,11 @@ int cs201x_device_t::set_brightness(uint8_t id, uint8_t brightness) {
         return set_onoff(id, false);
     if (brightness == 1)
         return set_onoff(id, true);
+
+    int error = ensure_led_control(id);
+    if (error < 0)
+        return error;
+
     return write_verified(LED_BRIGHTNESS_BASE + id, brightness);
 }
 
