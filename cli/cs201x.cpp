@@ -256,13 +256,21 @@ int cs201x_device_t::ensure_led_control(uint8_t id) {
     if (id == 0 || _led_control_claimed)
         return 0;
 
+    uint8_t boot_finished;
+    int error = read8(LED_BOOT_FINISH, boot_finished);
+    if (error < 0) {
+        _last_error = "cannot read CS201x boot-finish state";
+        return error;
+    }
+
     // The EC boot sequencer owns the network and disk LEDs until the vendor
     // startup path writes this handoff. It must remain set after CLI exit so
-    // that the requested LED state stays visible.
-    int error = write8(LED_BOOT_FINISH, 1);
-    if (error < 0) {
-        _last_error = "cannot hand CS201x LEDs over from the boot sequencer";
-        return error;
+    // that the requested LED state stays visible. Avoid rewriting it when a
+    // previous invocation has already completed the handoff.
+    if (boot_finished != 1) {
+        error = write_verified(LED_BOOT_FINISH, 1);
+        if (error < 0)
+            return error;
     }
 
     _led_control_claimed = true;
