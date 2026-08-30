@@ -85,6 +85,7 @@ void show_help() {
         << "Usage: ugreen_leds_cli  [LED-NAME...] [-on] [-off] [-(blink|breath) T_ON T_OFF]\n"
            "                    [-color R G B] [-brightness BRIGHTNESS] [-status]\n"
            "                    [-write-protocol legacy|smbus-block|cs201x]\n"
+           "                    [-h|--help]\n"
            "\n"
            "       LED_NAME:    separated by white space, possible values are\n"
            "                    { power, netdev, disk[1-8], all }.\n"
@@ -101,6 +102,7 @@ void show_help() {
            "       -brightness: set the brightness of corresponding LEDs.\n"
            "                    BRIGHTNESS should belong to [0, 255].\n"
            "       -status:     display the status of corresponding LEDs.\n"
+           "       -h, --help:  display this help without accessing hardware.\n"
         << std::endl;
 }
 
@@ -141,6 +143,14 @@ int main(int argc, char *argv[])
     if (argc < 2) {
         show_help();
         return 0;
+    }
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-h" || arg == "--help") {
+            show_help();
+            return 0;
+        }
     }
 
     std::string write_protocol;

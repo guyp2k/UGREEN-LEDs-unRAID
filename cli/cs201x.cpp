@@ -144,10 +144,19 @@ int cs201x_device_t::start() {
 
     _last_error.clear();
 
+    if (_system_access && geteuid() != 0)
+        return fail(-EPERM, "CS201x access requires root");
+
     if (_system_access && access("/sys/module/ug_201x_sio", F_OK) == 0)
         return fail(-EBUSY, "vendor ug_201x_sio driver is loaded");
 
     int error = acquire_lock();
+    if (error == -EACCES) {
+        return fail(error,
+                "cannot lock the CS201x controller; an older build may have "
+                "left a non-root-owned /run/lock/ugreen-leds-cs201x.lock "
+                "(remove it once with sudo rm)");
+    }
     if (error < 0)
         return fail(error, "cannot lock the CS201x controller");
 
