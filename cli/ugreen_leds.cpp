@@ -26,12 +26,31 @@ static std::string trim(const std::string& value) {
 }
 
 int ugreen_leds_t::start(const char *write_protocol) {
+    _last_error.clear();
+    _write_protocol = detect_write_protocol(write_protocol);
+
+    if (_write_protocol == write_protocol_t::cs201x)
+        return start_cs201x();
+
+    return start_i2c();
+}
+
+int ugreen_leds_t::start_cs201x() {
+    int error = _cs201x.start();
+    if (error < 0)
+        return error;
+
+    _chip_id = _cs201x.chip_id();
+    return 0;
+}
+
+int ugreen_leds_t::start_i2c() {
     namespace fs = std::filesystem;
 
-    if (!fs::exists(I2C_DEV_PATH))
+    if (!fs::exists(I2C_DEV_PATH)) {
+        _last_error = "no /sys/class/i2c-dev directory";
         return -1;
-
-    _write_protocol = detect_write_protocol(write_protocol);
+    }
 
     // Fast path, unchanged from upstream: bind directly to the Intel
     // "SMBus I801 adapter" without touching any other bus (keeps existing
@@ -70,6 +89,7 @@ int ugreen_leds_t::start(const char *write_protocol) {
         return 0;
     }
 
+    _last_error = "no usable I2C LED controller at address 0x3a";
     return -1;
 }
 
@@ -90,9 +110,18 @@ ugreen_leds_t::write_protocol_t ugreen_leds_t::detect_write_protocol(const char 
         if (value == "smbus-block") {
             return write_protocol_t::smbus_block;
         }
+        if (value == "cs201x") {
+            return write_protocol_t::cs201x;
+        }
         std::cerr << "Warning: invalid " << source << " write protocol '" << value
-                  << "'; using legacy." << std::endl;
+                  << "'; using model default." << std::endl;
     }
+
+    std::ifstream product_name_file("/sys/class/dmi/id/product_name");
+    std::string product_name;
+    std::getline(product_name_file, product_name);
+    if (trim(product_name) == "DXP2800 GT")
+        return write_protocol_t::cs201x;
 
     return write_protocol_t::legacy;
 }
@@ -143,6 +172,29 @@ ugreen_leds_t::led_data_t ugreen_leds_t::get_status(led_type_t id) {
     led_data_t data { };
     data.is_available = false;
 
+    if (_write_protocol == write_protocol_t::cs201x) {
+        cs201x_device_t::led_status_t status;
+        if (_cs201x.get_status(static_cast<uint8_t>(id), status) < 0)
+            return data;
+
+        switch (status.mode) {
+            case 0: data.op_mode = op_mode_t::off; break;
+            case 1: data.op_mode = op_mode_t::on; break;
+            case 2: data.op_mode = op_mode_t::blink; break;
+            case 3: data.op_mode = op_mode_t::breath; break;
+            default: return data;
+        }
+
+        data.brightness = status.brightness;
+        data.color_r = status.red;
+        data.color_g = status.green;
+        data.color_b = status.blue;
+        data.t_on = status.t_on;
+        data.t_off = status.t_off;
+        data.is_available = true;
+        return data;
+    }
+
     auto raw_data = _i2c.read_block_data(0x81 + (uint8_t)id, 0xb);
     if (raw_data.size() != 0xb || !verify_checksum(raw_data)) 
         return data;
@@ -167,6 +219,12 @@ ugreen_leds_t::led_data_t ugreen_leds_t::get_status(led_type_t id) {
     data.is_available = true;
 
     return data;
+}
+
+const std::string& ugreen_leds_t::last_error() const {
+    if (_write_protocol == write_protocol_t::cs201x)
+        return _cs201x.last_error();
+    return _last_error;
 }
 
 int ugreen_leds_t::_change_status(led_type_t id, uint8_t command, std::array<std::optional<uint8_t>, 4> params) {
@@ -208,10 +266,20 @@ int ugreen_leds_t::_change_status(led_type_t id, uint8_t command, std::array<std
 
 int ugreen_leds_t::set_onoff(led_type_t id, uint8_t status) {
     if (status >= 2) return -1;
+
+    if (_write_protocol == write_protocol_t::cs201x)
+        return _cs201x.set_onoff(static_cast<uint8_t>(id), status);
+
     return _change_status(id, 0x03, { status } );
 }
 
 int ugreen_leds_t::_set_blink_or_breath(uint8_t command, led_type_t id, uint16_t t_on, uint16_t t_off) {
+    if (_write_protocol == write_protocol_t::cs201x) {
+        if (command == 0x04)
+            return _cs201x.set_blink(static_cast<uint8_t>(id), t_on, t_off);
+        return _cs201x.set_breath(static_cast<uint8_t>(id), t_on, t_off);
+    }
+
     uint16_t t_hight = t_on + t_off;
     uint16_t t_low = t_on;
     return _change_status(id, command, { 
@@ -223,14 +291,23 @@ int ugreen_leds_t::_set_blink_or_breath(uint8_t command, led_type_t id, uint16_t
 }
 
 int ugreen_leds_t::set_rgb(led_type_t id, uint8_t r, uint8_t g, uint8_t b) {
+    if (_write_protocol == write_protocol_t::cs201x)
+        return _cs201x.set_rgb(static_cast<uint8_t>(id), r, g, b);
+
     return _change_status(id, 0x02, { r, g, b } );
 }
 
 int ugreen_leds_t::set_brightness(led_type_t id, uint8_t brightness) {
+    if (_write_protocol == write_protocol_t::cs201x)
+        return _cs201x.set_brightness(static_cast<uint8_t>(id), brightness);
+
     return _change_status(id, 0x01, { brightness } );
 }
 
 bool ugreen_leds_t::is_last_modification_successful() {
+    if (_write_protocol == write_protocol_t::cs201x)
+        return true;
+
     return _i2c.read_byte_data(0x80) == 1;
 }
 

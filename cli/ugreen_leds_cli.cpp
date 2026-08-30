@@ -84,11 +84,13 @@ void show_help() {
     std::cerr 
         << "Usage: ugreen_leds_cli  [LED-NAME...] [-on] [-off] [-(blink|breath) T_ON T_OFF]\n"
            "                    [-color R G B] [-brightness BRIGHTNESS] [-status]\n"
-           "                    [-write-protocol legacy|smbus-block]\n\n"
+           "                    [-write-protocol legacy|smbus-block|cs201x]\n"
+           "\n"
            "       LED_NAME:    separated by white space, possible values are\n"
            "                    { power, netdev, disk[1-8], all }.\n"
            "       -write-protocol: select the LED write protocol. If omitted, the CLI\n"
-           "                    checks UGREEN_LEDS_WRITE_PROTOCOL, then uses legacy.\n"
+           "                    checks UGREEN_LEDS_WRITE_PROTOCOL, then selects cs201x\n"
+           "                    for DXP2800 GT or legacy for other models.\n"
            "       -on / -off:  turn on / off corresponding LEDs.\n"
            "       -blink / -breath:  set LED to the blink / breath mode. This \n"
            "                    mode keeps the LED on for T_ON millseconds and then\n"
@@ -147,7 +149,7 @@ int main(int argc, char *argv[])
         std::string arg = argv[i];
         if (arg == "-write-protocol") {
             if (++i >= argc) {
-                std::cerr << "Err: -write-protocol requires legacy or smbus-block" << std::endl;
+                std::cerr << "Err: -write-protocol requires legacy, smbus-block, or cs201x" << std::endl;
                 show_help_and_exit();
             }
             write_protocol = argv[i];
@@ -164,9 +166,12 @@ int main(int argc, char *argv[])
     ugreen_leds_t leds_controller;
     const char *write_protocol_arg = write_protocol.empty() ? nullptr : write_protocol.c_str();
     if (leds_controller.start(write_protocol_arg) != 0) {
-        std::cerr << "Err: fail to open the I2C device." << std::endl;
-        std::cerr << "Please check that (1) you have the root permission; " << std::endl;
-        std::cerr << "              and (2) the i2c-dev module is loaded. " << std::endl;
+        std::cerr << "Err: fail to open the LED controller";
+        if (!leds_controller.last_error().empty())
+            std::cerr << ": " << leds_controller.last_error();
+        std::cerr << "." << std::endl;
+        std::cerr << "Run as root; I2C requires i2c-dev, while CS201x requires "
+                     "x86 I/O-port permission." << std::endl;
         return -1;
     }
 
@@ -298,7 +303,10 @@ int main(int argc, char *argv[])
             }
 
             if (last_status != 0) {
-                std::cerr << "failed to change status!" << std::endl;
+                std::cerr << "failed to change status";
+                if (!leds_controller.last_error().empty())
+                    std::cerr << ": " << leds_controller.last_error();
+                std::cerr << "!" << std::endl;
                 return -1;
             }
         }

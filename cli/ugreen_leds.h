@@ -3,7 +3,9 @@
 
 #include <array>
 #include <optional>
+#include <string>
 
+#include "cs201x.h"
 #include "i2c.h"
 
 #define UGREEN_LED_POWER    ugreen_leds_t::led_type_t::power
@@ -31,11 +33,14 @@ class ugreen_leds_t {
     enum class write_protocol_t {
         legacy,
         smbus_block,
+        cs201x,
     };
 
     i2c_device_t _i2c;
+    cs201x_device_t _cs201x;
     uint16_t _chip_id = 0;
     write_protocol_t _write_protocol = write_protocol_t::legacy;
+    std::string _last_error;
 
 public:
 
@@ -67,9 +72,12 @@ public:
     int set_breath(led_type_t id, uint16_t t_on, uint16_t t_off);
 
     bool is_last_modification_successful();
+    const std::string& last_error() const;
 
 private:
     write_protocol_t detect_write_protocol(const char *write_protocol);
+    int start_i2c();
+    int start_cs201x();
     uint16_t read_chip_id();
     int _set_blink_or_breath(uint8_t command, led_type_t id, uint16_t t_on, uint16_t t_off);
     int _change_status(led_type_t id, uint8_t command, std::array<std::optional<uint8_t>, 4> params);
