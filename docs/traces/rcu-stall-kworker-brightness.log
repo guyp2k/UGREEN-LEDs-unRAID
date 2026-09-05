@@ -1,0 +1,47 @@
+<12>Sep  5 09:44:53 nas kernel: UGREEN-DEBUG: ===== CLEANUP: delete_device + rmmod =====
+<6>Sep  5 09:44:53 nas kernel: i2c i2c-0: delete_device: Deleting device led-ugreen at 0x3a
+<4>Sep  5 09:44:57 nas kernel: sched: DL replenish lagged too much
+<3>Sep  5 09:45:03 nas kernel: rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:
+<3>Sep  5 09:45:03 nas kernel: rcu: 	7-...0: (1 GPs behind) idle=3ccc/1/0x4000000000000000 softirq=79401/79402 fqs=2500
+<3>Sep  5 09:45:03 nas kernel: rcu: 	(detected by 10, t=10002 jiffies, g=161213, q=2226 ncpus=12)
+<6>Sep  5 09:45:03 nas kernel: Sending NMI from CPU 10 to CPUs 7:
+<4>Sep  5 09:45:03 nas kernel: NMI backtrace for cpu 7
+<4>Sep  5 09:45:03 nas kernel: CPU: 7 UID: 0 PID: 494 Comm: kworker/u48:15 Tainted: P           O        6.18.47-Unraid #1 PREEMPT(voluntary) 
+<4>Sep  5 09:45:03 nas kernel: Tainted: [P]=PROPRIETARY_MODULE, [O]=OOT_MODULE
+<4>Sep  5 09:45:03 nas kernel: Hardware name: UGREEN DXP6800 Pro/Default string, BIOS 5.27 02/23/2024
+<4>Sep  5 09:45:03 nas kernel: Workqueue: leds set_brightness_delayed
+<4>Sep  5 09:45:03 nas kernel: RIP: 0010:native_queued_spin_lock_slowpath+0x160/0x1d0
+<4>Sep  5 09:45:03 nas kernel: Code: c1 ee 12 83 e2 03 ff ce 48 c1 e2 05 48 63 f6 48 81 c2 40 88 2b 83 48 03 14 f5 00 94 64 82 48 89 0a 8b 51 08 85 d2 75 04 f3 90 <eb> f5 48 8b 11 48 85 d2 74 03 0f 0d 0a 8b 33 66 85 f6 74 04 f3 90
+<4>Sep  5 09:45:03 nas kernel: RSP: 0018:ffffc90000b9bcf8 EFLAGS: 00000046
+<4>Sep  5 09:45:03 nas kernel: RAX: 0000000000200000 RBX: ffff88811f38e210 RCX: ffff8898379ec840
+<4>Sep  5 09:45:03 nas kernel: RDX: 0000000000000000 RSI: ffffffffffffffff RDI: ffff88811f38e210
+<4>Sep  5 09:45:03 nas kernel: RBP: ffff8898379ec840 R08: ffff88811f38e200 R09: 0000000000000000
+<4>Sep  5 09:45:03 nas kernel: R10: 8080808080808080 R11: fefefefefefefeff R12: 0000000000200000
+<4>Sep  5 09:45:03 nas kernel: R13: 0000000000000000 R14: ffff8881060d5900 R15: 0000000000000000
+<4>Sep  5 09:45:03 nas kernel: FS:  0000000000000000(0000) GS:ffff8898b4734000(0000) knlGS:0000000000000000
+<4>Sep  5 09:45:03 nas kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<4>Sep  5 09:45:03 nas kernel: CR2: 000014808bd58594 CR3: 000000000281a004 CR4: 0000000000772ef0
+<4>Sep  5 09:45:03 nas kernel: PKRU: 55555554
+<4>Sep  5 09:45:03 nas kernel: Call Trace:
+<4>Sep  5 09:45:03 nas kernel: <TASK>
+<4>Sep  5 09:45:03 nas kernel: do_raw_spin_lock+0x14/0x20
+<4>Sep  5 09:45:03 nas kernel: _raw_spin_lock_irqsave+0x1f/0x30
+<4>Sep  5 09:45:03 nas kernel: __mutex_lock.constprop.0+0xf5/0x390
+<4>Sep  5 09:45:03 nas kernel: ugreen_led_set_brightness_blocking+0x23/0x50 [led_ugreen]
+<4>Sep  5 09:45:03 nas kernel: set_brightness_delayed_set_brightness+0x2b/0x70
+<4>Sep  5 09:45:03 nas kernel: set_brightness_delayed+0x54/0xd0
+<4>Sep  5 09:45:03 nas kernel: ? kick_pool+0x27/0x110
+<4>Sep  5 09:45:03 nas kernel: process_scheduled_works+0x198/0x2b0
+<4>Sep  5 09:45:03 nas kernel: worker_thread+0x13b/0x1d0
+<4>Sep  5 09:45:03 nas kernel: ? __pfx_worker_thread+0x10/0x10
+<4>Sep  5 09:45:03 nas kernel: kthread+0x1ce/0x1e0
+<4>Sep  5 09:45:03 nas kernel: ? __pfx_kthread+0x10/0x10
+<4>Sep  5 09:45:03 nas kernel: ? _raw_spin_unlock+0x14/0x30
+<4>Sep  5 09:45:03 nas kernel: ? finish_task_switch.isra.0+0x139/0x220
+<4>Sep  5 09:45:03 nas kernel: ? __pfx_kthread+0x10/0x10
+<4>Sep  5 09:45:03 nas kernel: ? __pfx_kthread+0x10/0x10
+<4>Sep  5 09:45:03 nas kernel: ret_from_fork+0x24/0x170
+<4>Sep  5 09:45:03 nas kernel: ? __pfx_kthread+0x10/0x10
+<4>Sep  5 09:45:03 nas kernel: ret_from_fork_asm+0x1a/0x30
+<4>Sep  5 09:45:03 nas kernel: </TASK>
+<38>Sep  5 09:45:08 nas sshd-session[37420]: Connection from REDACTED port 33070 on REDACTED port 2222 rdomain ""

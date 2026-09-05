@@ -316,6 +316,30 @@ element: `status`, `r`, `g`, `b`, `brightness`, `t_on`.
 therefore locks an address near `0x8`. That is not a mutex, its `wait_lock` is not a
 lock, and `native_queued_spin_lock_slowpath` spins on it forever.
 
+### It does not require user interaction
+
+A third capture, taken while attempting to unload the driver, lands in the same place
+from a **kernel workqueue** rather than a user process:
+
+```
+CPU: 7 UID: 0 PID: 494 Comm: kworker/u48:15
+RIP: 0010:native_queued_spin_lock_slowpath+0x160/0x1d0
+ __mutex_lock.constprop.0+0xf5/0x390
+ ugreen_led_set_brightness_blocking+0x23/0x50 [led_ugreen]
+```
+
+Any LED brightness change reaches `ugreen_led_set_brightness_blocking` through
+`brightness_set_blocking`, dereferences the corrupted `priv`, and deadlocks. Normal
+plugin operation changes brightness continuously, so **no user action is required to
+trigger the failure** - which is why affected systems hang during boot or shortly
+after reaching a login prompt.
+
+It also means **`rmmod` is not a recovery path.** `led_classdev_unregister()` sets
+brightness to off, which takes the same route. Once the module is loaded and the
+device instantiated, a power cycle is the only way out.
+
+Trace: `docs/traces/rcu-stall-kworker-brightness.log`
+
 ### Every observation accounted for
 
 | Observation | Explanation |
