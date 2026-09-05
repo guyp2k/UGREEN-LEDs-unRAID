@@ -84,7 +84,7 @@ and kernel and wait for a release to appear.
 ### What the LEDs do
 
 - **power** - static green
-- **netdev** - colour by link speed (100 yellow, 1000 blue, 2500 magenta, 10000 cyan,
+- **netdev** - colour by link speed (100 yellow, 1000 green, 2500 magenta, 10000 dark blue,
   link down red). Deliberately avoids white and green so it cannot be confused with a
   disk LED or the power LED.
 - **disk1-N** - white when a drive is present in that bay, off when empty, and
