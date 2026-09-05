@@ -183,9 +183,7 @@ static ssize_t status_show(struct device *dev, struct device_attribute *attr, ch
 Two defects are visible by inspection:
 
 1. **The whole `struct ugreen_led_state` is copied by value**, including its embedded
-   `struct led_classdev`. Every other accessor in the file (`color_show`,
-   `blink_type_show`, `blink_type_store`) operates through a pointer. `status_show`
-   is the only one that does this, and it is the only one in the captured trace.
+   `struct led_classdev`. Every other accessor in the file operates through a pointer.
 
 2. **The bounds check is computed and then discarded.** `status` is clamped to
    `UGREEN_LED_STATE_INVALID`, and then the `sprintf` indexes
@@ -193,12 +191,89 @@ Two defects are visible by inspection:
    status is an out-of-bounds read of a 5-element pointer array, immediately
    dereferenced by `%s`.
 
+Neither is the trigger. See below.
+
+## Isolating the fault: accessor A/B
+
+The three sysfs accessors differ in how they reach the shared mutex, which makes them
+a natural A/B:
+
+| Accessor | Mutex | Result |
+| --- | --- | --- |
+| `color_show` | none | **survived**, returned a value |
+| `blink_type_show` | same mutex, via pointer | **system lost** |
+| `status_show` | same mutex, via struct copy | **system lost** |
+
+`blink_type_show` takes `priv->mutex` through an ordinary pointer and fails
+identically, on a different CPU and PID:
+
+```
+CPU: 2 UID: 0 PID: 22985 Comm: cat
+RIP: 0010:native_queued_spin_lock_slowpath+0x160/0x1d0
+ blink_type_show+0x25/0xc0 [led_ugreen]
+```
+
+**The by-value struct copy is therefore not the trigger.** It remains a defect worth
+fixing, but any accessor that takes `priv->mutex` from sysfs context hangs. The mutex
+itself is unusable.
+
+## Why this looks like memory corruption
+
+Two independent observations point the same way.
+
+**The spin location.** The task is stuck in `_raw_spin_lock_irqsave` on the mutex's
+internal `wait_lock`, inside `native_queued_spin_lock_slowpath`. A merely *contended*
+mutex puts the caller to sleep; it does not spin. Spinning indefinitely on the
+`wait_lock` is what happens when the lock word does not hold a valid lock value.
+
+**Inconsistent state contents.** `color_show` takes no lock and reads `state->r/g/b`
+directly. On the run above, probe logged for the same LED:
+
+```
+probed led id 2, status 0, rgb 0xffffff      (255 255 255)
+```
+
+and roughly 1.5 seconds later, with nothing else touching the driver,
+`cat .../color` returned:
+
+```
+163 244 148
+```
+
+A corrupted lock word and implausible state contents in the same `devm_kzalloc`
+allocation - `struct ugreen_led_array` holds both the mutex and the state array - are
+consistent with that allocation being overwritten.
+
+### Candidate corrupter (NOT confirmed)
+
+`ugreen_led_get_state()`:
+
+```c
+u8 buf[11];
+s32 rc = i2c_smbus_read_i2c_block_data(client, 0x81 + led_id, 11, (u8 *)buf);
+```
+
+The kernel implementation of `i2c_smbus_read_i2c_block_data()` ends with:
+
+```c
+memcpy(values, &data.block[1], data.block[0]);
+```
+
+`data.block[0]` is populated from the transfer and can be as large as
+`I2C_SMBUS_BLOCK_MAX` (32). The destination here is an 11-byte buffer, and the
+driver validates neither the return value nor the length before use. The LED slots
+most likely to return unexpected data are precisely the phantom `disk7`/`disk8`
+described below.
+
+This is a **suspect, not a conclusion** - the buffer is on the stack, and connecting
+it to corruption of a heap allocation requires evidence rather than argument.
+
 ### Still to determine
 
-Why the mutex acquisition never completes. The lock was uncontended at the time -
-nothing else was touching the driver. Distinguishing a corrupted lock word from a
-permanently-held one requires a further instrumented run, and **the fix should not be
-written until that is settled**.
+Whether the `priv` allocation is in fact being overwritten, and by what. This
+requires an instrumented build of the module logging the `priv` pointer, the mutex
+word and the state contents at probe and at each sysfs read. **The fix should not be
+written until that is settled.**
 
 Separately, the driver has no failure ceiling anywhere: `ugreen_led_change_state_robust`
 retries indefinitely at full rate with no path to giving up and disabling itself.
