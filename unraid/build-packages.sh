@@ -48,26 +48,26 @@ build_userspace() {
     # Plugin icon, shipped inside the package and installed straight to the path
     # Unraid reads it from. Downloading it separately would add a network
     # dependency and a failure mode for something purely cosmetic.
-    ICON="$REPO/unraid/ugreen-leds-unraid.png"
+    ICON="$REPO/unraid/UGREEN-LEDs-unRAID.png"
     if [ -f "$ICON" ]; then
-        mkdir -p "$stage/usr/local/emhttp/plugins/ugreen-leds-unraid/images"
+        mkdir -p "$stage/usr/local/emhttp/plugins/UGREEN-LEDs-unRAID/images"
         install -m0644 "$ICON" \
-            "$stage/usr/local/emhttp/plugins/ugreen-leds-unraid/images/ugreen-leds-unraid.png"
+            "$stage/usr/local/emhttp/plugins/UGREEN-LEDs-unRAID/images/UGREEN-LEDs-unRAID.png"
     else
         echo "WARNING: icon not found at $ICON; packaging without it" >&2
     fi
     cat > "$stage/install/slack-desc" <<'DESC'
        |-----handy-ruler------------------------------------------------------|
-ugreen-leds-unraid: ugreen-leds-unraid UGREEN NAS LED control for Unraid
-ugreen-leds-unraid:
-ugreen-leds-unraid: Control script and guarded module loader for the UGREEN NAS
-ugreen-leds-unraid: front-panel LEDs.
-ugreen-leds-unraid:
-ugreen-leds-unraid: Refuses to load a kernel module built against a different
-ugreen-leds-unraid: CONFIG_LEDS_* set than the running kernel.
-ugreen-leds-unraid:
+UGREEN-LEDs-unRAID: UGREEN-LEDs-unRAID UGREEN NAS LED control for Unraid
+UGREEN-LEDs-unRAID:
+UGREEN-LEDs-unRAID: Control script and guarded module loader for the UGREEN NAS
+UGREEN-LEDs-unRAID: front-panel LEDs.
+UGREEN-LEDs-unRAID:
+UGREEN-LEDs-unRAID: Refuses to load a kernel module built against a different
+UGREEN-LEDs-unRAID: CONFIG_LEDS_* set than the running kernel.
+UGREEN-LEDs-unRAID:
 DESC
-    make_txz "$stage" "$OUT/ugreen-leds-unraid-$DATE.txz"
+    make_txz "$stage" "$OUT/UGREEN-LEDs-unRAID-$DATE.txz"
     rm -rf "$stage"
 }
 

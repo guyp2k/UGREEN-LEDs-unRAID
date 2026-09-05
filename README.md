@@ -8,8 +8,14 @@
 **Plugins > Install Plugin**, and paste:
 
 ```
-https://github.com/guyp2k/ugreen-leds-unraid/raw/master/unraid/ugreen-leds-unraid.plg
+https://github.com/guyp2k/UGREEN-LEDs-unRAID/raw/master/unraid/UGREEN-LEDs-unRAID.plg
 ```
+
+> **Renamed 2026-09-05.** This plugin and repository were previously named
+> `ugreen-leds-unraid`. Installing the current version automatically removes the
+> old one, so the two cannot appear side by side in the plugins list. GitHub
+> redirects the old repository URL, but **the old plugin install URL no longer
+> works** because the `.plg` filename changed; use the URL above.
 
 | | |
 |---|---|
