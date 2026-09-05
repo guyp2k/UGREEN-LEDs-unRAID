@@ -4,6 +4,24 @@ An Unraid plugin for the UGREEN NAS front-panel LEDs, built after the previous
 plugin's prebuilt kernel module started hard-locking machines on Unraid
 7.4.0-beta.2.
 
+> ### Tested scope
+>
+> | | |
+> |---|---|
+> | **Unraid** | 7.4.0-beta.2 only (kernel `6.18.47-Unraid`) |
+> | **Hardware** | UGREEN DXP6800 Pro only |
+>
+> The plugin is **version capped to 7.4.0-beta.2** and will not install on any
+> other Unraid release. Every Unraid version ships a different kernel and needs
+> a module built specifically for it.
+>
+> Other UGREEN models are supported by the underlying driver but have **not**
+> been tested here. On an untested model the LED-to-bay mapping may be wrong or
+> the LEDs may not light at all. The machine is not at risk either way: the
+> loader refuses to load a module that does not match the running kernel.
+>
+> Install it on a machine you can afford to reboot.
+
 Full analysis: [`docs/investigation-kernel-lockup.md`](../docs/investigation-kernel-lockup.md)
 
 ## What went wrong with the old plugin

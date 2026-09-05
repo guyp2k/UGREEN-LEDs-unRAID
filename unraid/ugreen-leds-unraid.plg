@@ -14,12 +14,16 @@
   <!ENTITY packages    "&plugin;/packages">
 ]>
 
-<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.0.0-beta.0.1">
+<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.2">
 
 <CHANGES>
 
 ###2026.09.05
 - Initial release.
+- TESTED ONLY ON: Unraid 7.4.0-beta.2 (kernel 6.18.47-Unraid), UGREEN DXP6800 Pro.
+  Other UGREEN models are supported by the underlying driver but have not been
+  tested by the author. Other Unraid versions ship different kernels and need a
+  module built for them; the plugin is version capped and will not install.
 - Rebuilds the led-ugreen kernel module against the running Unraid kernel's own
   configuration, fixing the struct led_classdev size mismatch that hard-locks
   UGREEN NAS hardware on Unraid 7.4.0-beta.2 and later.
@@ -46,6 +50,29 @@ rm -f $(ls &plugin;/&name;-*.txz 2&gt;/dev/null | grep -v '&version;')
 <!-- Kernel module: one build per Unraid kernel, fetched from releases. -->
 <FILE Run="/bin/bash">
 <INLINE>
+
+echo
+echo "======================================================================"
+echo " UGREEN LED control"
+echo
+echo " TESTED ON : Unraid 7.4.0-beta.2 (kernel 6.18.47-Unraid)"
+echo "             UGREEN DXP6800 Pro"
+echo
+echo " Other UGREEN models are supported by the driver but are UNTESTED here."
+echo " If your model differs, the LEDs may be wrong or may not light at all."
+echo " Your server will not be harmed either way: the loader refuses to load"
+echo " a module that does not match your running kernel."
+echo "======================================================================"
+echo
+
+MODEL="$(dmidecode --string system-product-name 2>/dev/null)"
+case "$MODEL" in
+  DXP6800*) echo "Detected ${MODEL} - this is the tested model." ;;
+  "")       echo "NOTE: could not detect the system model. Proceeding." ;;
+  *)        echo "NOTE: detected '${MODEL}', which is UNTESTED. Proceeding anyway;" ;
+            echo "      LED mapping may be incorrect for this model." ;;
+esac
+echo
 
 KERNEL_V="$(uname -r)"
 PACKAGE="ugreen_leds"
