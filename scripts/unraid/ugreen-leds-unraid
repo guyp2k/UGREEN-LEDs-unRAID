@@ -1,0 +1,131 @@
+#!/bin/bash
+#
+# UGREEN NAS LED control for Unraid.
+#
+#   power    static colour (default green)
+#   netdev   colour selected by link speed
+#   disk1-N  white when a drive is present in that bay, off when empty
+#
+# The netdev palette deliberately avoids white and green so the network LED is
+# never mistaken for a disk LED (white) or the power LED (green).
+#
+# Polls slowly on purpose. The LED microcontroller sits on the same SMBus as the
+# DDR5 SPD sensors and platform firmware, so there is nothing to gain from
+# hammering it several times a second.
+
+set -u
+
+CONFIG=/boot/config/ugreen-leds/settings.cfg
+[ -r "$CONFIG" ] && . "$CONFIG"
+
+POLL_INTERVAL="${POLL_INTERVAL:-10}"
+
+COLOR_POWER="${COLOR_POWER:-0 255 0}"
+BRIGHTNESS_POWER="${BRIGHTNESS_POWER:-200}"
+
+COLOR_DISK_PRESENT="${COLOR_DISK_PRESENT:-255 255 255}"
+BRIGHTNESS_DISK="${BRIGHTNESS_DISK:-200}"
+
+COLOR_NETDEV_100="${COLOR_NETDEV_100:-255 255 0}"
+COLOR_NETDEV_1000="${COLOR_NETDEV_1000:-0 0 255}"
+COLOR_NETDEV_2500="${COLOR_NETDEV_2500:-255 0 255}"
+COLOR_NETDEV_10000="${COLOR_NETDEV_10000:-0 255 255}"
+COLOR_NETDEV_OTHER="${COLOR_NETDEV_OTHER:-255 165 0}"
+COLOR_NETDEV_DOWN="${COLOR_NETDEV_DOWN:-255 0 0}"
+BRIGHTNESS_NETDEV="${BRIGHTNESS_NETDEV:-200}"
+
+LEDS=/sys/class/leds
+LOCKFILE=/var/run/ugreen-leds-unraid.lock
+
+log() { logger -t ugreen-leds "$*"; }
+
+cleanup() { rm -f "$LOCKFILE"; }
+
+if [ -e "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE" 2>/dev/null)" 2>/dev/null; then
+    echo "already running (pid $(cat "$LOCKFILE"))" >&2
+    exit 1
+fi
+trap cleanup EXIT INT TERM
+echo $$ > "$LOCKFILE"
+
+# ---------------------------------------------------------------- bay mapping
+# Bay order is model specific and is NOT the natural ata order.
+model="$(dmidecode --string system-product-name 2>/dev/null)"
+case "$model" in
+    DXP6800*) ata_map=(ata3 ata4 ata5 ata6 ata1 ata2) ;;
+    DXP8800*) ata_map=(ata1 ata2 ata3 ata4 ata5 ata6 ata7 ata8) ;;
+    *)        ata_map=(ata1 ata2 ata3 ata4 ata5 ata6 ata7 ata8) ;;
+esac
+log "model '${model:-unknown}', bay order: ${ata_map[*]}"
+
+# ------------------------------------------------------------------ interface
+iface="$(grep -m1 'IFNAME\[0\]' /boot/config/network.cfg 2>/dev/null | cut -d'=' -f2 | tr -d '"[:space:]')"
+[ -z "$iface" ] && iface=eth0
+log "network interface: $iface"
+
+# ------------------------------------------------------------------- helpers
+led_exists() { [ -d "$LEDS/$1" ]; }
+
+# Write only on change. Avoids pointless SMBus traffic.
+declare -A last_color last_bright
+set_led() {
+    local led="$1" color="$2" bright="$3"
+    led_exists "$led" || return 0
+    if [ "${last_color[$led]:-}" != "$color" ]; then
+        echo none  > "$LEDS/$led/trigger"  2>/dev/null
+        echo "$color" > "$LEDS/$led/color" 2>/dev/null && last_color[$led]="$color"
+    fi
+    if [ "${last_bright[$led]:-}" != "$bright" ]; then
+        echo "$bright" > "$LEDS/$led/brightness" 2>/dev/null && last_bright[$led]="$bright"
+    fi
+}
+
+# Which ata port does each bay use, and is a block device attached to it?
+bay_populated() {
+    local ata="$1" d n
+    for d in /sys/block/sd*; do
+        [ -e "$d" ] || continue
+        n="$(readlink -f "$d" 2>/dev/null)"
+        case "$n" in *"/${ata}/"*) return 0 ;; esac
+    done
+    return 1
+}
+
+netdev_color() {
+    local carrier speed
+    carrier="$(cat "/sys/class/net/$iface/carrier" 2>/dev/null || echo 0)"
+    [ "$carrier" != "1" ] && { echo "$COLOR_NETDEV_DOWN"; return; }
+    speed="$(cat "/sys/class/net/$iface/speed" 2>/dev/null || echo 0)"
+    case "$speed" in
+        100)   echo "$COLOR_NETDEV_100" ;;
+        1000)  echo "$COLOR_NETDEV_1000" ;;
+        2500)  echo "$COLOR_NETDEV_2500" ;;
+        10000) echo "$COLOR_NETDEV_10000" ;;
+        *)     echo "$COLOR_NETDEV_OTHER" ;;
+    esac
+}
+
+# ----------------------------------------------------------------- main loop
+log "started (poll ${POLL_INTERVAL}s)"
+while true; do
+
+    set_led power "$COLOR_POWER" "$BRIGHTNESS_POWER"
+
+    set_led netdev "$(netdev_color)" "$BRIGHTNESS_NETDEV"
+
+    for i in "${!ata_map[@]}"; do
+        led="disk$((i + 1))"
+        led_exists "$led" || continue
+        if bay_populated "${ata_map[$i]}"; then
+            set_led "$led" "$COLOR_DISK_PRESENT" "$BRIGHTNESS_DISK"
+        else
+            if [ "${last_bright[$led]:-}" != "0" ]; then
+                echo none > "$LEDS/$led/trigger" 2>/dev/null
+                echo 0 > "$LEDS/$led/brightness" 2>/dev/null && last_bright[$led]="0"
+                last_color[$led]=""
+            fi
+        fi
+    done
+
+    sleep "$POLL_INTERVAL"
+done
