@@ -7,8 +7,10 @@
 #   disk1-N  white when a drive is present in that bay, off when empty,
 #            flashing on disk activity
 #
-# The netdev palette deliberately avoids white and green so the network LED is
-# never mistaken for a disk LED (white) or the power LED (green).
+# The netdev palette avoids white so the network LED is never mistaken for a disk
+# LED. Note that 1 Gbit is green, the same as the power LED; on a 1 Gbit link the
+# two adjacent LEDs will look alike. Override COLOR_NETDEV_1000 in settings.cfg if
+# that matters on your hardware.
 #
 # Activity flashing uses the kernel's oneshot LED trigger: the LED sits lit and
 # blinks dark briefly when the block device's I/O counters change. Each flash
@@ -36,7 +38,7 @@ COLOR_DISK_PRESENT="${COLOR_DISK_PRESENT:-255 255 255}"
 BRIGHTNESS_DISK="${BRIGHTNESS_DISK:-200}"
 
 COLOR_NETDEV_100="${COLOR_NETDEV_100:-255 255 0}"
-COLOR_NETDEV_1000="${COLOR_NETDEV_1000:-0 0 255}"
+COLOR_NETDEV_1000="${COLOR_NETDEV_1000:-0 255 0}"
 COLOR_NETDEV_2500="${COLOR_NETDEV_2500:-255 0 255}"
 COLOR_NETDEV_10000="${COLOR_NETDEV_10000:-0 0 139}"
 COLOR_NETDEV_OTHER="${COLOR_NETDEV_OTHER:-255 165 0}"

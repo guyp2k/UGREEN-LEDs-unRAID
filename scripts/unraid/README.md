@@ -61,7 +61,7 @@ load costs you dark LEDs. Loading a mismatched module costs you the machine.
 - **power** - static green
 - **netdev** - colour by link speed. The palette deliberately avoids white and
   green so the network LED cannot be mistaken for a disk LED or the power LED.
-  100 yellow, 1000 blue, 2500 magenta, 10000 dark blue, other orange, link down red.
+  100 yellow, 1000 green, 2500 magenta, 10000 dark blue, other orange, link down red.
 - **disk1-N** - white when a drive is present in that bay, off when empty
 
 Bay order is model specific and is not the natural `ata` order. On a DXP6800 the

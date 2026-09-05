@@ -3,8 +3,8 @@
   <!ENTITY name        "UGREEN-LEDs-unRAID">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "UGREEN-LEDs-unRAID">
-  <!ENTITY version     "2026.09.05e">
-  <!ENTITY md5         "34c2470cbe22aaae73fddcc9e03c002b">
+  <!ENTITY version     "2026.09.05f">
+  <!ENTITY md5         "dbac11b6aebe4e4bdf4e45a761b14e35">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -18,8 +18,10 @@
 
 <CHANGES>
 
-###2026.09.05e
-- 10 Gbit link colour changed from cyan to dark blue.
+###2026.09.05f
+- Network LED colours: 10 Gbit is now dark blue (was cyan), 1 Gbit is now green
+  (was blue). 1 Gbit green matches the power LED by choice; override
+  COLOR_NETDEV_1000 in settings.cfg to change it.
 
 ###2026.09.05d
 - Disk LEDs now flash on drive activity, using the kernel oneshot trigger. Set
