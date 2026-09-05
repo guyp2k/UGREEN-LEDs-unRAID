@@ -1,10 +1,10 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
-  <!ENTITY name        "ugreen-leds-unraid">
+  <!ENTITY name        "UGREEN-LEDs-unRAID">
   <!ENTITY author      "guyp2k">
-  <!ENTITY repo        "ugreen-leds-unraid">
+  <!ENTITY repo        "UGREEN-LEDs-unRAID">
   <!ENTITY version     "2026.09.05c">
-  <!ENTITY md5         "a51ec4a6bbcda021ee5265d6f58b4a77">
+  <!ENTITY md5         "7e3b30f8517837bee69e08d219525491">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -19,6 +19,9 @@
 <CHANGES>
 
 ###2026.09.05c
+- Renamed from ugreen-leds-unraid to UGREEN-LEDs-unRAID. Installing this version
+  removes the previously named plugin so the two cannot coexist. The install URL
+  has changed; see the repository README.
 - Add a plugin icon, shipped inside the package so it needs no network access.
 
 ###2026.09.05
@@ -40,6 +43,21 @@
 <INLINE>
 killall -q ugreen-leds-unraid 2&gt;/dev/null
 rm -f /var/run/ugreen-leds-unraid.lock
+
+# This plugin was previously named ugreen-leds-unraid. Remove that installation
+# so the two cannot sit side by side in the plugins list. The control script and
+# loader binaries are the same in both, and the new package reinstalls them.
+OLD=ugreen-leds-unraid
+if [ -e /boot/config/plugins/${OLD} ] || [ -e /boot/config/plugins/${OLD}.plg ]; then
+  echo "Removing the previously named plugin (${OLD})"
+  for p in $(ls -1 /var/log/packages/ 2&gt;/dev/null | grep "^${OLD}-"); do
+    removepkg "$p" &gt;/dev/null 2&gt;&amp;1
+  done
+  rm -rf /boot/config/plugins/${OLD} /boot/config/plugins/${OLD}.plg
+  rm -rf /usr/local/emhttp/plugins/${OLD}
+  rm -f /tmp/plugins/${OLD}.plg /tmp/plugins/${OLD}.txt
+fi
+
 rm -f $(ls &plugin;/&name;-*.txz 2&gt;/dev/null | grep -v '&version;')
 </INLINE>
 </FILE>
