@@ -1,0 +1,45 @@
+<12>Sep  5 09:22:23 nas kernel: UGREEN-DEBUG: ===== STAGE 3a: arming netdev trigger link+tx+rx @500ms =====
+<3>Sep  5 09:22:33 nas kernel: rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:
+<3>Sep  5 09:22:33 nas kernel: rcu: 	10-...0: (1 GPs behind) idle=087c/1/0x4000000000000000 softirq=527250/527251 fqs=2438
+<3>Sep  5 09:22:33 nas kernel: rcu: 	(detected by 2, t=10002 jiffies, g=1475605, q=1791 ncpus=12)
+<6>Sep  5 09:22:33 nas kernel: Sending NMI from CPU 2 to CPUs 10:
+<4>Sep  5 09:22:33 nas kernel: NMI backtrace for cpu 10
+<4>Sep  5 09:22:33 nas kernel: CPU: 10 UID: 0 PID: 285400 Comm: cat Tainted: P           O        6.18.47-Unraid #1 PREEMPT(voluntary) 
+<4>Sep  5 09:22:33 nas kernel: Tainted: [P]=PROPRIETARY_MODULE, [O]=OOT_MODULE
+<4>Sep  5 09:22:33 nas kernel: Hardware name: UGREEN DXP6800 Pro/Default string, BIOS 5.27 02/23/2024
+<4>Sep  5 09:22:33 nas kernel: RIP: 0010:native_queued_spin_lock_slowpath+0x160/0x1d0
+<4>Sep  5 09:22:33 nas kernel: Code: c1 ee 12 83 e2 03 ff ce 48 c1 e2 05 48 63 f6 48 81 c2 40 88 2b 83 48 03 14 f5 00 94 64 82 48 89 0a 8b 51 08 85 d2 75 04 f3 90 <eb> f5 48 8b 11 48 85 d2 74 03 0f 0d 0a 8b 33 66 85 f6 74 04 f3 90
+<4>Sep  5 09:22:33 nas kernel: RSP: 0018:ffffc90025bf7c78 EFLAGS: 00000046
+<4>Sep  5 09:22:33 nas kernel: RAX: 00000000002c0000 RBX: ffff88832c8d0580 RCX: ffff889837aac840
+<4>Sep  5 09:22:33 nas kernel: RDX: 0000000000000000 RSI: ffffffffffffffff RDI: ffff88832c8d0580
+<4>Sep  5 09:22:33 nas kernel: RBP: ffff889837aac840 R08: ffff88832c8d0570 R09: 0000000000000000
+<4>Sep  5 09:22:33 nas kernel: R10: 0000000000000000 R11: 0000000000000000 R12: 00000000002c0000
+<4>Sep  5 09:22:33 nas kernel: R13: 0000000000000000 R14: 00000000000000b8 R15: 000000000004008d
+<4>Sep  5 09:22:33 nas kernel: FS:  000014d9da92d740(0000) GS:ffff8898b47f4000(0000) knlGS:0000000000000000
+<4>Sep  5 09:22:33 nas kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<4>Sep  5 09:22:33 nas kernel: CR2: 000014d9da8eb000 CR3: 0000000343cce005 CR4: 0000000000772ef0
+<4>Sep  5 09:22:33 nas kernel: PKRU: 55555554
+<4>Sep  5 09:22:33 nas kernel: Call Trace:
+<4>Sep  5 09:22:33 nas kernel: <TASK>
+<4>Sep  5 09:22:33 nas kernel: do_raw_spin_lock+0x14/0x20
+<4>Sep  5 09:22:33 nas kernel: _raw_spin_lock_irqsave+0x1f/0x30
+<4>Sep  5 09:22:33 nas kernel: __mutex_lock.constprop.0+0xf5/0x390
+<4>Sep  5 09:22:33 nas kernel: ? obj_cgroup_charge_account+0x148/0x160
+<4>Sep  5 09:22:33 nas kernel: status_show+0x58/0xb0 [led_ugreen]
+<4>Sep  5 09:22:33 nas kernel: dev_attr_show+0x1f/0x50
+<4>Sep  5 09:22:33 nas kernel: sysfs_kf_seq_show+0x7f/0xc0
+<4>Sep  5 09:22:33 nas kernel: seq_read_iter+0x15e/0x350
+<4>Sep  5 09:22:33 nas kernel: vfs_read+0x130/0x1c0
+<4>Sep  5 09:22:33 nas kernel: ksys_read+0x6f/0xc0
+<4>Sep  5 09:22:33 nas kernel: do_syscall_64+0x6b/0xb70
+<4>Sep  5 09:22:33 nas kernel: entry_SYSCALL_64_after_hwframe+0x76/0x7e
+<4>Sep  5 09:22:33 nas kernel: RIP: 0033:0x14d9da9c8a12
+<4>Sep  5 09:22:33 nas kernel: Code: 00 00 00 48 8b 05 ce 63 16 00 64 89 10 48 c7 c2 ff ff ff ff 48 83 c4 18 48 89 d0 c3 0f 1f 40 00 49 89 ca 48 8b 44 24 20 0f 05 <48> 89 c2 48 3d 00 f0 ff ff 77 0b 48 89 d0 48 83 c4 18 c3 0f 1f 00
+<4>Sep  5 09:22:33 nas kernel: RSP: 002b:00007ffe3f15f540 EFLAGS: 00000202 ORIG_RAX: 0000000000000000
+<4>Sep  5 09:22:33 nas kernel: RAX: ffffffffffffffda RBX: 0000000000040000 RCX: 000014d9da9c8a12
+<4>Sep  5 09:22:33 nas kernel: RDX: 0000000000040000 RSI: 000014d9da8ec000 RDI: 0000000000000003
+<4>Sep  5 09:22:33 nas kernel: RBP: 00007ffe3f15f888 R08: 0000000000000000 R09: 0000000000000000
+<4>Sep  5 09:22:33 nas kernel: R10: 0000000000000000 R11: 0000000000000202 R12: 000014d9da8ec000
+<4>Sep  5 09:22:33 nas kernel: R13: 000000000040bbd8 R14: 0000000000000000 R15: 0000000000040000
+<4>Sep  5 09:22:33 nas kernel: </TASK>
+<3>Sep  5 09:23:03 nas kernel: rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:

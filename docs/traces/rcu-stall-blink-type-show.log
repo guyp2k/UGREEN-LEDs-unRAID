@@ -1,0 +1,60 @@
+<12>Sep  5 09:31:54 nas kernel: UGREEN-DEBUG: TEST-B blink_type_show start
+<3>Sep  5 09:32:04 nas kernel: rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:
+<3>Sep  5 09:32:04 nas kernel: rcu: 	2-...0: (1 GPs behind) idle=6ce4/1/0x4000000000000000 softirq=23026/23027 fqs=2134
+<3>Sep  5 09:32:04 nas kernel: rcu: 	(detected by 10, t=10003 jiffies, g=43533, q=769 ncpus=12)
+<6>Sep  5 09:32:04 nas kernel: Sending NMI from CPU 10 to CPUs 2:
+<4>Sep  5 09:32:04 nas kernel: NMI backtrace for cpu 2
+<4>Sep  5 09:32:04 nas kernel: CPU: 2 UID: 0 PID: 22985 Comm: cat Tainted: P           O        6.18.47-Unraid #1 PREEMPT(voluntary) 
+<4>Sep  5 09:32:04 nas kernel: Tainted: [P]=PROPRIETARY_MODULE, [O]=OOT_MODULE
+<4>Sep  5 09:32:04 nas kernel: Hardware name: UGREEN DXP6800 Pro/Default string, BIOS 5.27 02/23/2024
+<4>Sep  5 09:32:04 nas kernel: RIP: 0010:native_queued_spin_lock_slowpath+0x160/0x1d0
+<4>Sep  5 09:32:04 nas kernel: Code: c1 ee 12 83 e2 03 ff ce 48 c1 e2 05 48 63 f6 48 81 c2 40 88 2b 83 48 03 14 f5 00 94 64 82 48 89 0a 8b 51 08 85 d2 75 04 f3 90 <eb> f5 48 8b 11 48 85 d2 74 03 0f 0d 0a 8b 33 66 85 f6 74 04 f3 90
+<4>Sep  5 09:32:04 nas kernel: RSP: 0018:ffffc900327dfc98 EFLAGS: 00000046
+<4>Sep  5 09:32:04 nas kernel: RAX: 00000000000c0000 RBX: ffff888294f4a580 RCX: ffff8898378ac840
+<4>Sep  5 09:32:04 nas kernel: RDX: 0000000000000000 RSI: ffffffffffffffff RDI: ffff888294f4a580
+<4>Sep  5 09:32:04 nas kernel: RBP: ffff8898378ac840 R08: ffff888294f4a570 R09: 0000000000000000
+<4>Sep  5 09:32:04 nas kernel: R10: 0000000000000000 R11: 0000000000000000 R12: 00000000000c0000
+<4>Sep  5 09:32:04 nas kernel: R13: 0000000000000000 R14: ffff8881202e7258 R15: 0000000000040000
+<4>Sep  5 09:32:04 nas kernel: FS:  0000153d02e3c740(0000) GS:ffff8898b45f4000(0000) knlGS:0000000000000000
+<4>Sep  5 09:32:04 nas kernel: CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<4>Sep  5 09:32:04 nas kernel: CR2: 0000153d02dfa000 CR3: 00000001ffd9f005 CR4: 0000000000772ef0
+<4>Sep  5 09:32:04 nas kernel: PKRU: 55555554
+<4>Sep  5 09:32:04 nas kernel: Call Trace:
+<4>Sep  5 09:32:04 nas kernel: <TASK>
+<4>Sep  5 09:32:04 nas kernel: do_raw_spin_lock+0x14/0x20
+<4>Sep  5 09:32:04 nas kernel: _raw_spin_lock_irqsave+0x1f/0x30
+<4>Sep  5 09:32:04 nas kernel: __mutex_lock.constprop.0+0xf5/0x390
+<4>Sep  5 09:32:04 nas kernel: ? obj_cgroup_charge_account+0x148/0x160
+<4>Sep  5 09:32:04 nas kernel: ? __memcg_slab_post_alloc_hook+0x16f/0x1a0
+<4>Sep  5 09:32:04 nas kernel: blink_type_show+0x25/0xc0 [led_ugreen]
+<4>Sep  5 09:32:04 nas kernel: dev_attr_show+0x1f/0x50
+<4>Sep  5 09:32:04 nas kernel: sysfs_kf_seq_show+0x7f/0xc0
+<4>Sep  5 09:32:04 nas kernel: seq_read_iter+0x15e/0x350
+<4>Sep  5 09:32:04 nas kernel: vfs_read+0x130/0x1c0
+<4>Sep  5 09:32:04 nas kernel: ksys_read+0x6f/0xc0
+<4>Sep  5 09:32:04 nas kernel: do_syscall_64+0x6b/0xb70
+<4>Sep  5 09:32:04 nas kernel: entry_SYSCALL_64_after_hwframe+0x76/0x7e
+<4>Sep  5 09:32:04 nas kernel: RIP: 0033:0x153d02ed7a12
+<4>Sep  5 09:32:04 nas kernel: Code: 00 00 00 48 8b 05 ce 63 16 00 64 89 10 48 c7 c2 ff ff ff ff 48 83 c4 18 48 89 d0 c3 0f 1f 40 00 49 89 ca 48 8b 44 24 20 0f 05 <48> 89 c2 48 3d 00 f0 ff ff 77 0b 48 89 d0 48 83 c4 18 c3 0f 1f 00
+<4>Sep  5 09:32:04 nas kernel: RSP: 002b:00007fffa50bae80 EFLAGS: 00000202 ORIG_RAX: 0000000000000000
+<4>Sep  5 09:32:04 nas kernel: RAX: ffffffffffffffda RBX: 0000000000040000 RCX: 0000153d02ed7a12
+<4>Sep  5 09:32:04 nas kernel: RDX: 0000000000040000 RSI: 0000153d02dfb000 RDI: 0000000000000003
+<4>Sep  5 09:32:04 nas kernel: RBP: 00007fffa50bb1c8 R08: 0000000000000000 R09: 0000000000000000
+<4>Sep  5 09:32:04 nas kernel: R10: 0000000000000000 R11: 0000000000000202 R12: 0000153d02dfb000
+<4>Sep  5 09:32:04 nas kernel: R13: 000000000040bbd8 R14: 0000000000000000 R15: 0000000000040000
+<4>Sep  5 09:32:04 nas kernel: </TASK>
+<38>Sep  5 09:32:19 nas sshd-session[22981]: Received disconnect from REDACTED port 43932:11: disconnected by user
+<38>Sep  5 09:32:19 nas sshd-session[22981]: Disconnected from user root REDACTED port 43932
+<86>Sep  5 09:32:19 nas sshd-session[22977]: pam_unix(sshd:session): session closed for user root
+<38>Sep  5 09:32:19 nas kernel: elogind-daemon[2531]: Session 5 logged out. Waiting for processes to exit.
+<38>Sep  5 09:32:19 nas kernel: elogind-daemon[2531]: Removed session 5.
+<38>Sep  5 09:32:19 nas sshd-session[23033]: Connection from REDACTED port 46582 on REDACTED port 2222 rdomain ""
+<3>Sep  5 09:32:34 nas kernel: rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:
+<3>Sep  5 09:32:34 nas kernel: rcu: 	2-...0: (1 GPs behind) idle=6ce4/1/0x4000000000000000 softirq=23026/23027 fqs=9556
+<3>Sep  5 09:32:34 nas kernel: rcu: 	(detected by 5, t=40010 jiffies, g=43533, q=9044 ncpus=12)
+<6>Sep  5 09:32:34 nas kernel: Sending NMI from CPU 5 to CPUs 2:
+<4>Sep  5 09:32:34 nas kernel: NMI backtrace for cpu 2
+<4>Sep  5 09:32:34 nas kernel: CPU: 2 UID: 0 PID: 22985 Comm: cat Tainted: P           O        6.18.47-Unraid #1 PREEMPT(voluntary) 
+<4>Sep  5 09:32:34 nas kernel: Tainted: [P]=PROPRIETARY_MODULE, [O]=OOT_MODULE
+<4>Sep  5 09:32:34 nas kernel: Hardware name: UGREEN DXP6800 Pro/Default string, BIOS 5.27 02/23/2024
+<4>Sep  5 09:32:34 nas kernel: RIP: 0010:native_queued_spin_lock_slowpath+0x160/0x1d0

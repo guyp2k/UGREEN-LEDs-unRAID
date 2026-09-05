@@ -1,0 +1,174 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+  <!ENTITY name        "ugreen-leds-unraid">
+  <!ENTITY author      "guyp2k">
+  <!ENTITY repo        "ugreen-leds-unraid">
+  <!ENTITY version     "2026.09.05">
+  <!ENTITY md5         "fcc552a287674ff3d33c84b51ed3069d">
+  <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
+  <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
+  <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
+  <!ENTITY pluginURL   "&gitURL;/&name;.plg">
+  <!ENTITY plugin      "/boot/config/plugins/&name;">
+  <!ENTITY emhttp      "/usr/local/emhttp/plugins/&name;">
+  <!ENTITY packages    "&plugin;/packages">
+]>
+
+<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.2">
+
+<CHANGES>
+
+###2026.09.05
+- Initial release.
+- TESTED ONLY ON: Unraid 7.4.0-beta.2 (kernel 6.18.47-Unraid), UGREEN DXP6800 Pro.
+  Other UGREEN models are supported by the underlying driver but have not been
+  tested by the author. Other Unraid versions ship different kernels and need a
+  module built for them; the plugin is version capped and will not install.
+- Rebuilds the led-ugreen kernel module against the running Unraid kernel's own
+  configuration, fixing the struct led_classdev size mismatch that hard-locks
+  UGREEN NAS hardware on Unraid 7.4.0-beta.2 and later.
+- Refuses to load a module whose build configuration does not match the running
+  kernel. vermagic cannot detect this class of mismatch.
+
+</CHANGES>
+
+<!-- Stop anything already running before we replace it. -->
+<FILE Run="/bin/bash">
+<INLINE>
+killall -q ugreen-leds-unraid 2&gt;/dev/null
+rm -f /var/run/ugreen-leds-unraid.lock
+rm -f $(ls &plugin;/&name;-*.txz 2&gt;/dev/null | grep -v '&version;')
+</INLINE>
+</FILE>
+
+<!-- Userspace: control script and the guarded loader. Kernel independent. -->
+<FILE Name="&plugin;/&name;-&version;.txz" Run="upgradepkg --install-new">
+<URL>&gitURL;/packages/&name;-&version;.txz</URL>
+<MD5>&md5;</MD5>
+</FILE>
+
+<!-- Kernel module: one build per Unraid kernel, fetched from releases. -->
+<FILE Run="/bin/bash">
+<INLINE>
+
+echo
+echo "======================================================================"
+echo " UGREEN LED control"
+echo
+echo " TESTED ON : Unraid 7.4.0-beta.2 (kernel 6.18.47-Unraid)"
+echo "             UGREEN DXP6800 Pro"
+echo
+echo " Other UGREEN models are supported by the driver but are UNTESTED here."
+echo " If your model differs, the LEDs may be wrong or may not light at all."
+echo " Your server will not be harmed either way: the loader refuses to load"
+echo " a module that does not match your running kernel."
+echo "======================================================================"
+echo
+
+MODEL="$(dmidecode --string system-product-name 2>/dev/null)"
+case "$MODEL" in
+  DXP6800*) echo "Detected ${MODEL} - this is the tested model." ;;
+  "")       echo "NOTE: could not detect the system model. Proceeding." ;;
+  *)        echo "NOTE: detected '${MODEL}', which is UNTESTED. Proceeding anyway;" ;
+            echo "      LED mapping may be incorrect for this model." ;;
+esac
+echo
+
+KERNEL_V="$(uname -r)"
+PACKAGE="ugreen_leds"
+PKGDIR="&packages;/${KERNEL_V}"
+
+mkdir -p "$PKGDIR"
+
+# Drop module packages for kernels we are no longer running.
+for d in &packages;/*; do
+  [ -d "$d" ] || continue
+  [ "$(basename "$d")" = "$KERNEL_V" ] || rm -rf "$d"
+done
+
+fail() {
+  echo
+  echo "------------------------------------------------------------------------"
+  echo "$1"
+  echo "------------------------------------------------------------------------"
+  echo
+  echo "The plugin is installed but the LED driver is NOT loaded."
+  echo "Your server is unaffected; only the front panel LEDs are inactive."
+  echo
+  exit 0
+}
+
+if ! ls -1 "$PKGDIR" 2&gt;/dev/null | grep -q "${PACKAGE}.*\.txz$" ; then
+  echo
+  echo "-------------- Downloading LED module for ${KERNEL_V} ----------------"
+  LAT="$(wget -qO- "&apiURL;/${KERNEL_V}" | jq -r '.assets[]?.name' 2&gt;/dev/null | grep "^${PACKAGE}" | grep -v '\.md5$' | sort -V | tail -1)"
+  if [ -z "$LAT" ] || [ "$LAT" = "null" ]; then
+    fail "No LED module has been built for kernel ${KERNEL_V} yet."
+  fi
+  if ! wget -q --show-progress --progress=bar:force:noscroll -O "$PKGDIR/${LAT}" "&relURL;/${KERNEL_V}/${LAT}" ; then
+    rm -f "$PKGDIR/${LAT}"
+    fail "Could not download ${LAT}."
+  fi
+  wget -q -O "$PKGDIR/${LAT}.md5" "&relURL;/${KERNEL_V}/${LAT}.md5"
+  if [ "$(md5sum "$PKGDIR/${LAT}" | awk '{print $1}')" != "$(awk '{print $1}' "$PKGDIR/${LAT}.md5")" ]; then
+    rm -f "$PKGDIR/${LAT}" "$PKGDIR/${LAT}.md5"
+    fail "Checksum mismatch on ${LAT}."
+  fi
+fi
+
+MODPKG="$(ls -1 "$PKGDIR"/${PACKAGE}*.txz 2&gt;/dev/null | head -1)"
+[ -n "$MODPKG" ] || fail "No module package present for ${KERNEL_V}."
+
+/sbin/installpkg "$MODPKG" &gt;/dev/null 2&gt;&amp;1
+/sbin/depmod -a &gt;/dev/null 2&gt;&amp;1
+
+# The loader verifies the module's recorded build config against the running
+# kernel and refuses to load on a mismatch. That check is the reason this
+# plugin exists: a mismatched module loads cleanly and then corrupts kernel
+# memory, hanging the machine with no recovery short of a power cycle.
+if [ -x /usr/bin/ugreen-leds-install ]; then
+  /usr/bin/ugreen-leds-install
+else
+  fail "ugreen-leds-install missing from the userspace package."
+fi
+
+echo
+echo "-------------- UGREEN LED control installed successfully --------------"
+echo
+
+</INLINE>
+</FILE>
+
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+
+echo "--------------- Removing UGREEN LED control ---------------"
+
+killall -q ugreen-leds-unraid 2&gt;/dev/null
+sleep 1
+rm -f /var/run/ugreen-leds-unraid.lock
+
+# Turn the LEDs off before we let go of them.
+for l in /sys/class/leds/power /sys/class/leds/netdev /sys/class/leds/disk*; do
+  [ -d "$l" ] || continue
+  echo none 2&gt;/dev/null &gt; "$l/trigger"
+  echo 0    2&gt;/dev/null &gt; "$l/brightness"
+done
+
+# Detach the i2c client, then unload.
+for d in /sys/bus/i2c/devices/i2c-*; do
+  case "$(cat "$d/name" 2&gt;/dev/null)" in
+    *I801*) echo 0x3a &gt; "$d/delete_device" 2&gt;/dev/null ;;
+  esac
+done
+sleep 1
+rmmod led_ugreen 2&gt;/dev/null
+
+removepkg &name;-&version; &gt;/dev/null 2&gt;&amp;1
+rm -rf &plugin; &emhttp;
+
+echo "--------------- Removed. No reboot required. ---------------"
+
+</INLINE>
+</FILE>
+</PLUGIN>
