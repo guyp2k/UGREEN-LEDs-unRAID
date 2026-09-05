@@ -1,3 +1,52 @@
+# UGREEN LED control for Unraid
+
+> This is a fork of [miskcoo/ugreen_leds_controller](https://github.com/miskcoo/ugreen_leds_controller)
+> that adds an **Unraid plugin**. Upstream's original README follows below.
+
+## Install on Unraid
+
+**Plugins > Install Plugin**, and paste:
+
+```
+https://github.com/guyp2k/ugreen-leds-unraid/raw/master/unraid/ugreen-leds-unraid.plg
+```
+
+| | |
+|---|---|
+| **Tested on** | Unraid 7.4.0-beta.2 (kernel `6.18.47-Unraid`) |
+| **Tested hardware** | UGREEN DXP6800 Pro |
+
+The plugin is **version capped to 7.4.0-beta.2** and will not install on any other
+Unraid release, because every Unraid version ships a different kernel and needs a
+module built for it. Other UGREEN models are supported by the driver but are untested
+here; on those the LED-to-bay mapping may be wrong.
+
+### Why this fork exists
+
+The previously available Unraid plugin was archived by its author. Its prebuilt kernel
+module is compiled against a 416-byte `struct led_classdev`, while Unraid 7.4.0-beta.2
+ships 432 bytes. The LED core writes 16 bytes past the module's own field, destroys the
+driver's `priv` pointer, and every subsequent LED update locks a garbage address and
+spins a CPU forever. The machine becomes unusable and only a power cycle recovers it.
+`vermagic` cannot detect this, so the module loads cleanly and with a valid checksum.
+
+This fork rebuilds the module against the configuration Unraid actually ships, and the
+loader **refuses to load** a module whose build configuration does not match the running
+kernel. A mismatch costs you dark LEDs instead of your NAS.
+
+- Full analysis and kernel traces: [`docs/investigation-kernel-lockup.md`](docs/investigation-kernel-lockup.md)
+- Plugin documentation and rebuild instructions: [`unraid/README.md`](unraid/README.md)
+
+### What the LEDs do
+
+- **power** - static green
+- **netdev** - colour by link speed (100 yellow, 1000 blue, 2500 magenta, 10000 cyan,
+  link down red). Deliberately avoids white and green so it cannot be confused with a
+  disk LED or the power LED.
+- **disk1-N** - white when a drive is present in that bay, off when empty
+
+---
+
 LED Controller for UGREEN's DX/DXP NAS Series
 ==
 
