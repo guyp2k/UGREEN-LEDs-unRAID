@@ -29,9 +29,11 @@ disassembly; see below.
 This is a **build-configuration defect in the binary distribution** - not a hardware
 SMBus wedge, not a kernel regression, and not a bug in the driver source.
 
-The popular framing of this problem - "the kernel module needs rebuilding for the new
-kernel" - is **wrong**, and this document exists mostly to kill that idea with evidence
-so nobody else wastes a weekend on it.
+The common framing - "the module needs rebuilding for the new kernel" - turns out to
+be right in spirit and wrong in detail. A module *was* built and shipped for
+`6.18.47-Unraid`, it loads cleanly, and its checksum is valid. What it needs is a
+rebuild against the shipped kernel's **configuration**, which is a different problem
+with a different fix.
 
 ## What was ruled out
 
@@ -53,20 +55,23 @@ installation on newer Unraid rather than fixing anything.
 
 **Users on the "old" package are running the same code as the "current" one.**
 
-### 3. A regression introduced in 6.18.47
+### 3. A code regression in the 6.18.47 kernel
 
 Kernel went `6.18.44` -> `6.18.47`: three upstream stable point releases, which carry
-backported fixes rather than subsystem rewrites.
+backported fixes rather than subsystem rewrites. No kernel code change is responsible.
 
-More importantly, **the same class of lockup is reported on entirely different
-distributions and older kernels**. Upstream issue #81 documents complete hardware
-lockups on a DXP4800 Plus under Proxmox, using the userspace CLI with no kernel
-module involved. A reporter there added `sleep 1` between LED commands, ran
-"stable" for three months, and then locked up anyway. A third report followed.
+What did change is the size of `struct led_classdev` between the kernel the module was
+built against and the kernel it is loaded into. That is a **configuration** difference,
+covered in detail below.
 
-**The defect predates 6.18.47 and is not Unraid-specific.** The kernel bump appears
-to have changed timing enough to move the failure from "eventually" to "immediately",
-which is a difference in probability, not in kind.
+### A note on upstream issue #81
+
+Upstream issue #81 reports complete hardware lockups on a DXP4800 Plus under Proxmox,
+using the userspace CLI with **no kernel module involved at all**. It was initially
+treated here as the same defect. Given the root cause established below - which
+requires the kernel module and an ABI mismatch that cannot occur in a DKMS or
+source build - **issue #81 is most likely a different bug** and should not be assumed
+fixed by anything in this document.
 
 ## Observed system state
 
