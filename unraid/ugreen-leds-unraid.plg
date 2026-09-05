@@ -3,8 +3,8 @@
   <!ENTITY name        "ugreen-leds-unraid">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "ugreen-leds-unraid">
-  <!ENTITY version     "2026.09.05a">
-  <!ENTITY md5         "fa843fd6b502e80dd9aae200a36c1a06">
+  <!ENTITY version     "2026.09.05b">
+  <!ENTITY md5         "8b537c2b9f68be448eac3097ce6657c6">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">

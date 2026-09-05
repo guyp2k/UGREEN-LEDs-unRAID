@@ -110,7 +110,23 @@ if [ ! -d "/sys/bus/i2c/devices/${i2c_dev#i2c-}-003a" ]; then
 fi
 
 # ---- start the control script ------------------------------------------------
+# Installed to /usr/bin by the package; $DIR is the hand-install location.
+CTRL=""
+for cand in /usr/bin/ugreen-leds-unraid "$DIR/ugreen-leds-unraid"; do
+    [ -x "$cand" ] && { CTRL="$cand"; break; }
+done
+if [ -z "$CTRL" ]; then
+    log "ERROR: control script not found in /usr/bin or $DIR"
+    exit 1
+fi
+
 sleep 1
 rm -f /var/run/ugreen-leds-unraid.lock
-setsid nohup "$DIR/ugreen-leds-unraid" > /var/log/ugreen-leds.log 2>&1 < /dev/null &
-log "control script started"
+setsid nohup "$CTRL" > /var/log/ugreen-leds.log 2>&1 < /dev/null &
+sleep 2
+if pgrep -f "$CTRL" >/dev/null 2>&1; then
+    log "control script started ($CTRL)"
+else
+    log "ERROR: control script failed to start. See /var/log/ugreen-leds.log"
+    exit 1
+fi
