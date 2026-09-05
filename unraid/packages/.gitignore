@@ -1,0 +1,5 @@
+# Kernel module packages are published as GitHub releases tagged with the exact
+# kernel version, not committed. The userspace package IS committed because the
+# plg fetches it from raw.
+ugreen_leds-*.txz
+ugreen_leds-*.txz.md5
