@@ -87,7 +87,8 @@ and kernel and wait for a release to appear.
 - **netdev** - colour by link speed (100 yellow, 1000 blue, 2500 magenta, 10000 cyan,
   link down red). Deliberately avoids white and green so it cannot be confused with a
   disk LED or the power LED.
-- **disk1-N** - white when a drive is present in that bay, off when empty
+- **disk1-N** - white when a drive is present in that bay, off when empty, and
+  **flashing on disk activity**
 
 ---
 

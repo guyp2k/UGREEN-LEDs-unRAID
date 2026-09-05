@@ -4,21 +4,30 @@
 #
 #   power    static colour (default green)
 #   netdev   colour selected by link speed
-#   disk1-N  white when a drive is present in that bay, off when empty
+#   disk1-N  white when a drive is present in that bay, off when empty,
+#            flashing on disk activity
 #
 # The netdev palette deliberately avoids white and green so the network LED is
 # never mistaken for a disk LED (white) or the power LED (green).
 #
-# Polls slowly on purpose. The LED microcontroller sits on the same SMBus as the
-# DDR5 SPD sensors and platform firmware, so there is nothing to gain from
-# hammering it several times a second.
+# Activity flashing uses the kernel's oneshot LED trigger: the LED sits lit and
+# blinks dark briefly when the block device's I/O counters change. Each flash
+# costs SMBus transactions on a bus shared with the DDR5 SPD sensors and platform
+# firmware, so the poll rate is a deliberate trade between responsiveness and bus
+# load. Set DISK_ACTIVITY_BLINK=no to disable it entirely.
 
 set -u
 
 CONFIG=/boot/config/ugreen-leds/settings.cfg
 [ -r "$CONFIG" ] && . "$CONFIG"
 
+# How often disk presence, link speed and colours are re-evaluated.
 POLL_INTERVAL="${POLL_INTERVAL:-10}"
+
+# Activity flashing.
+DISK_ACTIVITY_BLINK="${DISK_ACTIVITY_BLINK:-yes}"
+ACTIVITY_INTERVAL="${ACTIVITY_INTERVAL:-0.5}"
+ACTIVITY_FLASH_MS="${ACTIVITY_FLASH_MS:-80}"
 
 COLOR_POWER="${COLOR_POWER:-0 255 0}"
 BRIGHTNESS_POWER="${BRIGHTNESS_POWER:-200}"
@@ -63,16 +72,40 @@ iface="$(grep -m1 'IFNAME\[0\]' /boot/config/network.cfg 2>/dev/null | cut -d'='
 [ -z "$iface" ] && iface=eth0
 log "network interface: $iface"
 
+if [ "$DISK_ACTIVITY_BLINK" = yes ]; then
+    modprobe ledtrig-oneshot 2>/dev/null
+    log "disk activity flashing on (poll ${ACTIVITY_INTERVAL}s, flash ${ACTIVITY_FLASH_MS}ms)"
+else
+    log "disk activity flashing off"
+fi
+
 # ------------------------------------------------------------------- helpers
 led_exists() { [ -d "$LEDS/$1" ]; }
 
-# Write only on change. Avoids pointless SMBus traffic.
-declare -A last_color last_bright
-set_led() {
+# Cached state, so nothing is written to the bus unless it actually changed.
+declare -A last_color last_bright last_trigger
+declare -A devices        # led -> block device backing that bay
+declare -A last_stat      # led -> last seen I/O counters
+
+set_trigger() {
+    local led="$1" trig="$2"
+    [ "${last_trigger[$led]:-}" = "$trig" ] && return 0
+    echo "$trig" > "$LEDS/$led/trigger" 2>/dev/null || return 1
+    last_trigger[$led]="$trig"
+    # Changing the trigger resets the LED's parameters, so invalidate the cache.
+    last_color[$led]=""
+    last_bright[$led]=""
+    if [ "$trig" = oneshot ]; then
+        echo 1 > "$LEDS/$led/invert"    2>/dev/null
+        echo "$ACTIVITY_FLASH_MS" > "$LEDS/$led/delay_on"  2>/dev/null
+        echo "$ACTIVITY_FLASH_MS" > "$LEDS/$led/delay_off" 2>/dev/null
+    fi
+    return 0
+}
+
+set_color_brightness() {
     local led="$1" color="$2" bright="$3"
-    led_exists "$led" || return 0
     if [ "${last_color[$led]:-}" != "$color" ]; then
-        echo none  > "$LEDS/$led/trigger"  2>/dev/null
         echo "$color" > "$LEDS/$led/color" 2>/dev/null && last_color[$led]="$color"
     fi
     if [ "${last_bright[$led]:-}" != "$bright" ]; then
@@ -80,13 +113,21 @@ set_led() {
     fi
 }
 
-# Which ata port does each bay use, and is a block device attached to it?
-bay_populated() {
+led_off() {
+    local led="$1"
+    set_trigger "$led" none
+    if [ "${last_bright[$led]:-}" != "0" ]; then
+        echo 0 > "$LEDS/$led/brightness" 2>/dev/null && last_bright[$led]="0"
+    fi
+}
+
+# Which block device, if any, sits on the ata port for this bay?
+bay_device() {
     local ata="$1" d n
     for d in /sys/block/sd*; do
         [ -e "$d" ] || continue
         n="$(readlink -f "$d" 2>/dev/null)"
-        case "$n" in *"/${ata}/"*) return 0 ;; esac
+        case "$n" in *"/${ata}/"*) basename "$d"; return 0 ;; esac
     done
     return 1
 }
@@ -105,27 +146,70 @@ netdev_color() {
     esac
 }
 
-# ----------------------------------------------------------------- main loop
-log "started (poll ${POLL_INTERVAL}s)"
-while true; do
+# Re-evaluate everything that changes slowly: power, link speed, bay occupancy.
+refresh_state() {
+    set_trigger power none
+    set_color_brightness power "$COLOR_POWER" "$BRIGHTNESS_POWER"
 
-    set_led power "$COLOR_POWER" "$BRIGHTNESS_POWER"
+    set_trigger netdev none
+    set_color_brightness netdev "$(netdev_color)" "$BRIGHTNESS_NETDEV"
 
-    set_led netdev "$(netdev_color)" "$BRIGHTNESS_NETDEV"
-
+    local i led dev
     for i in "${!ata_map[@]}"; do
         led="disk$((i + 1))"
         led_exists "$led" || continue
-        if bay_populated "${ata_map[$i]}"; then
-            set_led "$led" "$COLOR_DISK_PRESENT" "$BRIGHTNESS_DISK"
-        else
-            if [ "${last_bright[$led]:-}" != "0" ]; then
-                echo none > "$LEDS/$led/trigger" 2>/dev/null
-                echo 0 > "$LEDS/$led/brightness" 2>/dev/null && last_bright[$led]="0"
-                last_color[$led]=""
+
+        if dev="$(bay_device "${ata_map[$i]}")"; then
+            devices[$led]="$dev"
+            if [ "$DISK_ACTIVITY_BLINK" = yes ]; then
+                set_trigger "$led" oneshot
+            else
+                set_trigger "$led" none
             fi
+            set_color_brightness "$led" "$COLOR_DISK_PRESENT" "$BRIGHTNESS_DISK"
+        else
+            unset 'devices[$led]'
+            unset 'last_stat[$led]'
+            led_off "$led"
         fi
     done
+}
 
-    sleep "$POLL_INTERVAL"
+# Flash any disk LED whose block device has done I/O since the last check.
+check_activity() {
+    local led dev now
+    for led in "${!devices[@]}"; do
+        dev="${devices[$led]}"
+        now="$(cat "/sys/block/$dev/stat" 2>/dev/null)"
+        [ -z "$now" ] && continue
+        if [ "${last_stat[$led]:-}" != "$now" ]; then
+            [ -n "${last_stat[$led]:-}" ] && echo 1 > "$LEDS/$led/shot" 2>/dev/null
+            last_stat[$led]="$now"
+        fi
+    done
+}
+
+# ----------------------------------------------------------------- main loop
+# One loop. Activity is checked every tick; the slower state refresh runs every
+# POLL_INTERVAL seconds worth of ticks.
+log "started (state ${POLL_INTERVAL}s)"
+
+if [ "$DISK_ACTIVITY_BLINK" = yes ]; then
+    tick="$ACTIVITY_INTERVAL"
+    ticks_per_refresh="$(awk -v p="$POLL_INTERVAL" -v t="$ACTIVITY_INTERVAL" \
+        'BEGIN { n = int(p / t); if (n < 1) n = 1; print n }')"
+else
+    tick="$POLL_INTERVAL"
+    ticks_per_refresh=1
+fi
+
+count=0
+while true; do
+    if [ "$count" -eq 0 ]; then
+        refresh_state
+    fi
+    [ "$DISK_ACTIVITY_BLINK" = yes ] && check_activity
+
+    count=$(( (count + 1) % ticks_per_refresh ))
+    sleep "$tick"
 done

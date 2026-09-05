@@ -72,7 +72,8 @@ machine. The plugin always chooses dark LEDs.
 - **netdev** - colour by link speed: 100 yellow, 1000 blue, 2500 magenta,
   10000 cyan, other orange, link down red. The palette deliberately avoids white
   and green so the network LED is never mistaken for a disk LED or the power LED.
-- **disk1-N** - white when a drive is present in that bay, off when empty
+- **disk1-N** - white when a drive is present in that bay, off when empty, and
+  flashing briefly on disk activity
 
 Bay order is model specific and is **not** the natural `ata` order. On a DXP6800
 the bays map to `ata3 ata4 ata5 ata6 ata1 ata2`.
@@ -81,16 +82,43 @@ Polling is slow by design. The LED microcontroller shares the SMBus with the
 DDR5 SPD temperature sensors and platform firmware; driving it several times a
 second buys nothing and adds contention.
 
+### Disk activity flashing
+
+Activity flashing uses the kernel's `oneshot` LED trigger. The LED sits lit and
+blinks dark briefly whenever the block device's I/O counters change.
+
+Every flash costs SMBus transactions on a bus shared with the DDR5 SPD temperature
+sensors and platform firmware. Upstream issue #81 reports unexplained hard lockups
+on this hardware attributed to driving the LED controller rapidly, on a distribution
+that does not use this kernel module at all. That fault is **not** understood and is
+**not** the one this project fixed, so the defaults here are deliberately gentler
+than the plugin this one replaces: a 0.5 s poll against its 0.5 s poll plus a
+separate 500 ms netdev trigger.
+
+If you would rather not drive the bus at all, turn it off:
+
+```bash
+DISK_ACTIVITY_BLINK="no"
+```
+
 ### Configuration
 
 Optional, at `/boot/config/ugreen-leds/settings.cfg`:
 
 ```bash
-POLL_INTERVAL=10
+POLL_INTERVAL=10                 # seconds between presence / link-speed checks
+DISK_ACTIVITY_BLINK="yes"        # "no" disables activity flashing entirely
+ACTIVITY_INTERVAL=0.5            # seconds between I/O counter checks
+ACTIVITY_FLASH_MS=80             # length of each flash
+
 COLOR_POWER="0 255 0"
 COLOR_DISK_PRESENT="255 255 255"
 COLOR_NETDEV_10000="0 255 255"
 ```
+
+Raising `ACTIVITY_INTERVAL` reduces bus traffic proportionally at the cost of
+responsiveness. Nothing writes to the LED controller unless a value actually
+changed, so an idle array generates no traffic beyond the slow state refresh.
 
 ## Building
 

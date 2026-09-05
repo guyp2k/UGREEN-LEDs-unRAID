@@ -63,9 +63,10 @@ else
 fi
 
 # ---- load --------------------------------------------------------------------
-modprobe i2c-dev    2>/dev/null
-modprobe i2c-i801   2>/dev/null
-modprobe led-class  2>/dev/null
+modprobe i2c-dev         2>/dev/null
+modprobe i2c-i801        2>/dev/null
+modprobe led-class       2>/dev/null
+modprobe ledtrig-oneshot 2>/dev/null   # disk activity flashing
 
 if ! lsmod | grep -q '^led_ugreen'; then
     loaded=0
