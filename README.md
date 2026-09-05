@@ -37,6 +37,44 @@ kernel. A mismatch costs you dark LEDs instead of your NAS.
 - Full analysis and kernel traces: [`docs/investigation-kernel-lockup.md`](docs/investigation-kernel-lockup.md)
 - Plugin documentation and rebuild instructions: [`unraid/README.md`](unraid/README.md)
 
+### What happens when Unraid updates
+
+**Nothing breaks, and you do not need to do anything urgently.**
+
+Two independent safeguards apply when Unraid ships a new release with a new kernel:
+
+1. **Version cap.** The plugin declares `min` and `max` for the Unraid versions it
+   has been built and tested for. Unraid will not install or update it outside that
+   range.
+2. **ABI guard.** Even if the plugin runs, the loader compares the module's recorded
+   build kernel against the running one, and the LED configuration option that
+   determines `sizeof(struct led_classdev)`. On any mismatch it **refuses to load**
+   and logs why.
+
+So after upgrading Unraid to a version this plugin has not been built for, the
+**LEDs simply stay dark and the server is unaffected**. That is the intended
+outcome, and it is the opposite of the failure this project was created to fix,
+where a mismatched module loaded happily and hung the machine.
+
+To get the LEDs working again, a module has to be built for the new kernel. That
+requires the new kernel's configuration, which only exists on a machine already
+running it, so the order is always: upgrade a machine you can afford to reboot
+first, then build.
+
+```bash
+./unraid/rebuild-for-kernel.sh --from-host root@your-nas --release
+```
+
+That reads the kernel version, configuration and symbol table from the upgraded
+machine, fetches matching upstream kernel sources, builds the module, verifies the
+`state->priv` offset matches what the configuration implies, and publishes a
+release tagged with the exact kernel version. It then prints the remaining manual
+steps: widening the plugin's version range, bumping the userspace package, and
+updating the tested-scope tables.
+
+If you would rather not build it yourself, open an issue naming the Unraid version
+and kernel and wait for a release to appear.
+
 ### What the LEDs do
 
 - **power** - static green
