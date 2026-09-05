@@ -286,16 +286,35 @@ input_leds_brightness_get:  mov 0x1b0(%rdi),%rax   ; ->handle
 `handle` sits at `0x1b0` (432). The running kernel's
 **`sizeof(struct led_classdev) == 432`**.
 
-**Delta: 16 bytes.** That is exactly the size contributed by
-`CONFIG_LEDS_BRIGHTNESS_HW_CHANGED`:
+**Delta: 16 bytes.** That is the size contributed by `CONFIG_LEDS_BRIGHTNESS_HW_CHANGED`:
 
 ```c
 int                  brightness_hw_changed;      /* 4 bytes + 4 padding */
 struct kernfs_node  *brightness_hw_changed_kn;   /* 8 bytes */
 ```
 
-(The 16-byte difference is measured. Attributing it to that specific option is
-inference from the size, and is not required for the conclusion.)
+### Confirmed from the shipped kernel configurations
+
+Unraid ships the kernel configuration at `/lib/modules/<version>/build/config`, and
+keeps the previous release under `/boot/previous`. Both are readable on an affected
+machine:
+
+```
+7.4.0-beta.1  (6.18.44):  # CONFIG_LEDS_BRIGHTNESS_HW_CHANGED is not set
+7.4.0-beta.2  (6.18.47):  CONFIG_LEDS_BRIGHTNESS_HW_CHANGED=y
+```
+
+**This single configuration change is the entire bug.** The prebuilt module was
+correct for beta.1 and became a memory-corrupting module on beta.2, while continuing
+to load cleanly because `vermagic` does not encode structure layouts.
+
+The same file confirms the other two platform findings independently:
+
+```
+# CONFIG_NETCONSOLE is not set
+# CONFIG_SOFTLOCKUP_DETECTOR is not set
+# CONFIG_DETECT_HUNG_TASK is not set
+```
 
 ### The overlap
 
@@ -433,7 +452,10 @@ tell you what happened after it happens.
 
 ## Remaining work
 
-1. Rebuild `led-ugreen.ko` against the shipped kernel's headers and configuration.
+1. Rebuild `led-ugreen.ko` against the shipped kernel configuration. Requirements,
+   read from the affected machine: kernel `6.18.47`, Unraid's `config` and patch set
+   from `/lib/modules/<version>/build`, GCC 15.3.0, and neither `CONFIG_MODVERSIONS`
+   nor `CONFIG_MODULE_SIG` set - so no symbol CRCs and no module signing are needed.
 2. Apply the source hardening above so a future mismatch degrades safely.
 3. Rebuild the module against the kernel configuration actually shipped, which is
    the real fix. Mitigations previously considered - `i2c_i801.disable_features=0x10`
