@@ -3,8 +3,8 @@
   <!ENTITY name        "ugreen-leds-unraid">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "ugreen-leds-unraid">
-  <!ENTITY version     "2026.09.05b">
-  <!ENTITY md5         "8b537c2b9f68be448eac3097ce6657c6">
+  <!ENTITY version     "2026.09.05c">
+  <!ENTITY md5         "a51ec4a6bbcda021ee5265d6f58b4a77">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -17,6 +17,9 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.2">
 
 <CHANGES>
+
+###2026.09.05c
+- Add a plugin icon, shipped inside the package so it needs no network access.
 
 ###2026.09.05
 - Initial release.

@@ -44,6 +44,18 @@ build_userspace() {
     mkdir -p "$stage/usr/bin" "$stage/install"
     install -m0755 "$REPO/scripts/unraid/ugreen-leds-unraid"     "$stage/usr/bin/ugreen-leds-unraid"
     install -m0755 "$REPO/scripts/unraid/install-ugreen-leds.sh" "$stage/usr/bin/ugreen-leds-install"
+
+    # Plugin icon, shipped inside the package and installed straight to the path
+    # Unraid reads it from. Downloading it separately would add a network
+    # dependency and a failure mode for something purely cosmetic.
+    ICON="$REPO/unraid/ugreen-leds-unraid.png"
+    if [ -f "$ICON" ]; then
+        mkdir -p "$stage/usr/local/emhttp/plugins/ugreen-leds-unraid/images"
+        install -m0644 "$ICON" \
+            "$stage/usr/local/emhttp/plugins/ugreen-leds-unraid/images/ugreen-leds-unraid.png"
+    else
+        echo "WARNING: icon not found at $ICON; packaging without it" >&2
+    fi
     cat > "$stage/install/slack-desc" <<'DESC'
        |-----handy-ruler------------------------------------------------------|
 ugreen-leds-unraid: ugreen-leds-unraid UGREEN NAS LED control for Unraid
