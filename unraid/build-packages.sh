@@ -19,7 +19,10 @@ set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/.." && pwd)"
 OUT="$HERE/packages"
-DATE="$(date +%Y.%m.%d)"
+# PKG_VERSION lets a same-day rebuild take a distinct version. Slackware
+# will not upgrade a package to the version it already has, so changing
+# package contents without changing the version silently does nothing.
+DATE="${PKG_VERSION:-$(date +%Y.%m.%d)}"
 mkdir -p "$OUT"
 
 die() { echo "ERROR: $*" >&2; exit 1; }
