@@ -130,6 +130,38 @@ Unraid's own kernel patches touch md, nvme, drm, thunderbolt, scsi and uas, and
 do not affect the LED class layout, so a vanilla tree with Unraid's config is
 sufficient for this module.
 
+## When Unraid ships a new kernel
+
+The plugin is capped to the Unraid versions it has been built for, and the loader
+independently refuses to load a module whose recorded build kernel or
+`CONFIG_LEDS_BRIGHTNESS_HW_CHANGED` value does not match the running kernel.
+
+Upgrading Unraid beyond the tested range therefore leaves the **LEDs dark and the
+server healthy**. Nothing needs to be done in a hurry.
+
+To support the new kernel:
+
+```bash
+# on a machine already upgraded and running the new kernel
+./unraid/rebuild-for-kernel.sh --from-host root@your-nas --release
+```
+
+The script:
+
+1. reads `uname -r`, `/lib/modules/<kver>/build/config` and `/proc/kallsyms` over ssh
+2. downloads matching upstream kernel sources and applies Unraid's configuration
+3. fails if `olddefconfig` alters any LED-relevant option
+4. runs `modules_prepare` and reconstructs `Module.symvers` so `depends=` is correct
+5. builds and packages the module, refusing to package one whose `state->priv`
+   offset does not match the configuration
+6. verifies `vermagic` names the target kernel
+7. optionally creates the GitHub release tagged with the exact kernel version
+
+It deliberately stops short of editing the plugin. Widening `min`/`max`, bumping the
+userspace package version and updating the tested-scope tables stay manual, because
+claiming support for an Unraid release is a statement about testing, not about
+whether a build succeeded.
+
 ## Publishing module builds
 
 The plugin fetches the module package from a GitHub release **tagged with the
