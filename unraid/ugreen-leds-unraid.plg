@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name        "ugreen-leds-unraid">
   <!ENTITY author      "guyp2k">
-  <!ENTITY repo        "ugreen_dx4600_leds_controller">
+  <!ENTITY repo        "ugreen-leds-unraid">
   <!ENTITY version     "2026.09.05">
   <!ENTITY md5         "fcc552a287674ff3d33c84b51ed3069d">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">

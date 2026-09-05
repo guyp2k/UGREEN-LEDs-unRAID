@@ -143,3 +143,13 @@ LEDs alone.
 Kernel module and original tooling by Yuhao Zhou (miskcoo),
 <https://github.com/miskcoo/ugreen_leds_controller>. The Unraid packaging
 approach follows the plugin previously maintained by ich777.
+
+## Installing
+
+In the Unraid GUI: **Plugins > Install Plugin**, paste:
+
+```
+https://github.com/guyp2k/ugreen-leds-unraid/raw/master/unraid/ugreen-leds-unraid.plg
+```
+
+The plugin will refuse to install on any Unraid release other than 7.4.0-beta.2.
