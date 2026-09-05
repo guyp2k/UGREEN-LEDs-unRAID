@@ -11,14 +11,24 @@
 set -u
 
 DIR=/boot/config/ugreen-leds
-KO="$DIR/led-ugreen.ko"
 META="$DIR/module.meta"
 KVER="$(uname -r)"
 KCONFIG="/lib/modules/${KVER}/build/config"
 
 log() { logger -t ugreen-leds-install "$*"; echo "ugreen-leds-install: $*"; }
 
-[ -r "$KO" ] || { log "ERROR: $KO not found, nothing to do"; exit 1; }
+# The module normally arrives as a Slackware package installed under
+# /lib/modules/<kver>/extra. A hand-placed copy under $DIR is also accepted so
+# the loader works for a manual install too.
+KO=""
+for cand in \
+    "/lib/modules/${KVER}/extra/led-ugreen.ko.xz" \
+    "/lib/modules/${KVER}/extra/led-ugreen.ko" \
+    "$DIR/led-ugreen.ko"; do
+    [ -r "$cand" ] && { KO="$cand"; break; }
+done
+[ -n "$KO" ] || { log "ERROR: led-ugreen module not found in /lib/modules/${KVER}/extra or $DIR"; exit 1; }
+log "module: $KO"
 
 # ---- guard 1: kernel version -------------------------------------------------
 built_ver="$(grep -m1 '^built_for=' "$META" 2>/dev/null | cut -d= -f2-)"
@@ -58,12 +68,23 @@ modprobe i2c-i801   2>/dev/null
 modprobe led-class  2>/dev/null
 
 if ! lsmod | grep -q '^led_ugreen'; then
-    if insmod "$KO" 2>/dev/null; then
-        log "module loaded (built for $built_ver)"
-    else
-        log "ERROR: insmod failed"
-        exit 1
+    loaded=0
+    case "$KO" in
+        /lib/modules/*)
+            depmod -a 2>/dev/null
+            modprobe led-ugreen 2>/dev/null && loaded=1
+            ;;
+    esac
+    if [ "$loaded" -eq 0 ]; then
+        case "$KO" in
+            *.xz) xz -dc "$KO" > /tmp/led-ugreen.ko 2>/dev/null \
+                    && insmod /tmp/led-ugreen.ko 2>/dev/null && loaded=1
+                  rm -f /tmp/led-ugreen.ko ;;
+            *)    insmod "$KO" 2>/dev/null && loaded=1 ;;
+        esac
     fi
+    [ "$loaded" -eq 1 ] || { log "ERROR: could not load the module"; exit 1; }
+    log "module loaded (built for $built_ver)"
 fi
 
 # ---- instantiate the LED controller on the i801 SMBus ------------------------

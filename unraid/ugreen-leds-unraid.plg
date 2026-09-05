@@ -4,7 +4,7 @@
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "ugreen-leds-unraid">
   <!ENTITY version     "2026.09.05">
-  <!ENTITY md5         "fcc552a287674ff3d33c84b51ed3069d">
+  <!ENTITY md5         "de30758ebaf14df9b88376476aa24230">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -126,10 +126,12 @@ MODPKG="$(ls -1 "$PKGDIR"/${PACKAGE}*.txz 2&gt;/dev/null | head -1)"
 # kernel and refuses to load on a mismatch. That check is the reason this
 # plugin exists: a mismatched module loads cleanly and then corrupts kernel
 # memory, hanging the machine with no recovery short of a power cycle.
-if [ -x /usr/bin/ugreen-leds-install ]; then
-  /usr/bin/ugreen-leds-install
-else
+if [ ! -x /usr/bin/ugreen-leds-install ]; then
   fail "ugreen-leds-install missing from the userspace package."
+fi
+
+if ! /usr/bin/ugreen-leds-install ; then
+  fail "The LED driver did not load. See the messages above."
 fi
 
 echo
