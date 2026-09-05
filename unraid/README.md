@@ -70,7 +70,7 @@ machine. The plugin always chooses dark LEDs.
 
 - **power** - static green
 - **netdev** - colour by link speed: 100 yellow, 1000 blue, 2500 magenta,
-  10000 cyan, other orange, link down red. The palette deliberately avoids white
+  10000 dark blue, other orange, link down red. The palette deliberately avoids white
   and green so the network LED is never mistaken for a disk LED or the power LED.
 - **disk1-N** - white when a drive is present in that bay, off when empty, and
   flashing briefly on disk activity
@@ -113,7 +113,7 @@ ACTIVITY_FLASH_MS=80             # length of each flash
 
 COLOR_POWER="0 255 0"
 COLOR_DISK_PRESENT="255 255 255"
-COLOR_NETDEV_10000="0 255 255"
+COLOR_NETDEV_10000="0 0 139"
 ```
 
 Raising `ACTIVITY_INTERVAL` reduces bus traffic proportionally at the cost of
