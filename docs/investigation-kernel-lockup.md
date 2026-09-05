@@ -1,6 +1,6 @@
 # Investigation: total system lockup on UGREEN NAS with `led-ugreen`
 
-**Status:** open, evidence collection in progress
+**Status:** root cause located and captured; exact lock mechanism still being narrowed
 **Hardware under test:** UGREEN DXP6800 Pro
 **OS:** Unraid 7.4.0-beta.2 (kernel `6.18.47-Unraid`)
 **Last known good:** Unraid 7.4.0-beta.1 (kernel `6.18.44-Unraid`)
@@ -10,6 +10,16 @@
 With the UGREEN LED driver active, the machine loses network connectivity and then
 becomes completely unresponsive. Recovery requires a physical power cycle. Removing
 the driver makes the system stable immediately.
+
+**Reading a single sysfs file is sufficient to trigger it.** `cat` on any
+`/sys/class/leds/*/status` enters `status_show()` in this driver, blocks in
+`__mutex_lock`, and never returns. The CPU spins in
+`native_queued_spin_lock_slowpath` at 100%, RCU grace periods stall, and the machine
+degrades to the reported state. Full trace: `docs/traces/rcu-stall-status-show.log`.
+
+No LED trigger, no disk-activity polling loop and no network traffic are required.
+This is a **driver lock defect**, not a hardware SMBus wedge and not a kernel
+regression.
 
 The popular framing of this problem - "the kernel module needs rebuilding for the new
 kernel" - is **wrong**, and this document exists mostly to kill that idea with evidence
@@ -109,50 +119,146 @@ From `kmod/led-ugreen.c`, `ugreen_led_change_state_robust()`:
 A healthy transaction costs a few milliseconds. A failing one costs up to roughly
 **140 ms of sleeping while holding the shared mutex**.
 
-### Working hypothesis (NOT yet confirmed)
+This retry cost was the original suspect: an unbounded backlog of blocked workqueue
+items starving the system. **The captured trace does not support that explanation.**
+The failure occurred with no triggers armed, no polling loop running and no LED
+activity of any kind. It is recorded here only so the theory is not re-proposed.
 
-Once SMBus transactions begin failing, each LED update becomes ~140 ms of blocking
-work on a shared mutex, while new LED work continues to arrive every 100-500 ms.
-Work then arrives faster than it can drain, producing an unbounded backlog of
-blocked workqueue items. This is a candidate explanation for the reported ordering
-of symptoms - network connectivity dying first, total unresponsiveness following.
+## Confirmed failure
 
-**This is a hypothesis. It has not been confirmed with a kernel trace, and no fix
-should be written against it until it has been.** The alternative explanations -
-a genuine SMBus controller wedge at the hardware level, or bus contention between
-`led-ugreen`, `spd5118` and platform firmware - remain open and are not mutually
-exclusive with the above.
+Reproduction was staged, and each stage was checked for survival:
 
-Notably, the driver has **no failure ceiling**. It retries indefinitely, at full
-rate, on a bus that may already be wedged. There is no path by which it gives up and
-disables itself.
+| Stage | Action | Result |
+| --- | --- | --- |
+| 1 | `insmod led-ugreen.ko verbose=1`, no device instantiated | survived, inert |
+| 2 | instantiate `led-ugreen 0x3a` on the i801 bus | survived, 296 ms, 10 slots probed |
+| 3 | `cat /sys/class/leds/disk1/status` | **system lost** |
 
-## Why no trace exists yet
+Captured via remote syslog to a separate host. Abridged:
+
+```
+rcu: INFO: rcu_preempt detected stalls on CPUs/tasks:
+     10-...0: (1 GPs behind) ... (detected by 2, t=10002 jiffies)
+Sending NMI from CPU 2 to CPUs 10:
+NMI backtrace for cpu 10
+CPU: 10 UID: 0 PID: 285400 Comm: cat
+RIP: 0010:native_queued_spin_lock_slowpath+0x160/0x1d0
+Call Trace:
+ do_raw_spin_lock
+ _raw_spin_lock_irqsave
+ __mutex_lock.constprop.0+0xf5/0x390
+ status_show+0x58/0xb0 [led_ugreen]
+ dev_attr_show
+ sysfs_kf_seq_show
+ seq_read_iter
+ vfs_read
+ ksys_read
+ do_syscall_64
+```
+
+The stall was still being reported at `t=70012 jiffies` with the same task on the
+same CPU. The machine continued to answer ICMP and accept TCP connections on the SSH
+port while being unable to complete a login - which matches the user-visible
+description of "lost the network" in the public reports.
+
+### The code
+
+```c
+static ssize_t status_show(struct device *dev, struct device_attribute *attr, char *buf) {
+    struct led_classdev *cdev = dev_get_drvdata(dev);
+    struct ugreen_led_state state = *lcdev_to_ugreen_led_state(cdev);
+
+    mutex_lock(&state.priv->mutex);
+    int status = state.status;
+    if (status >= ARRAY_SIZE(ugreen_led_state_name)) {
+        status = UGREEN_LED_STATE_INVALID;
+    }
+    ssize_t size = sprintf(buf, "%s %d %d %d %d %d %d\n",
+            ugreen_led_state_name[state.status], ...);
+    mutex_unlock(&state.priv->mutex);
+    return size;
+}
+```
+
+Two defects are visible by inspection:
+
+1. **The whole `struct ugreen_led_state` is copied by value**, including its embedded
+   `struct led_classdev`. Every other accessor in the file (`color_show`,
+   `blink_type_show`, `blink_type_store`) operates through a pointer. `status_show`
+   is the only one that does this, and it is the only one in the captured trace.
+
+2. **The bounds check is computed and then discarded.** `status` is clamped to
+   `UGREEN_LED_STATE_INVALID`, and then the `sprintf` indexes
+   `ugreen_led_state_name[state.status]` using the *unclamped* value. Any out-of-range
+   status is an out-of-bounds read of a 5-element pointer array, immediately
+   dereferenced by `%s`.
+
+### Still to determine
+
+Why the mutex acquisition never completes. The lock was uncontended at the time -
+nothing else was touching the driver. Distinguishing a corrupted lock word from a
+permanently-held one requires a further instrumented run, and **the fix should not be
+written until that is settled**.
+
+Separately, the driver has no failure ceiling anywhere: `ugreen_led_change_state_robust`
+retries indefinitely at full rate with no path to giving up and disabling itself.
+
+## Additional finding: phantom LEDs
+
+`UGREEN_MAX_LED_NUMBER` is hardcoded to 10 with no per-model awareness. On a 6-bay
+DXP6800 Pro the probe registers `disk7` and `disk8`, which do not physically exist.
+Their probe timings give them away:
+
+```
+led id 0..7 :  9-21 ms each,   t_cycle 4864
+led id 8    :  92 ms,          t_cycle 0
+led id 9    :  56 ms,          t_cycle 0
+```
+
+Slots 8 and 9 took three to five times longer because the driver was burning retries
+on absent hardware, returned a distinctly different `t_cycle`, and were registered as
+LEDs anyway. Every subsequent write to them is a guaranteed retry storm.
+
+## Why no trace existed before
 
 Every public report of this bug loses its evidence at the moment the bug becomes
-interesting: the machine hard-locks with the logs still in memory. Upstream issue #81
-has been open since January with no trace attached, which is very likely why it has
-gone nowhere.
+interesting. Upstream issue #81 has been open since January with no trace attached.
 
-## Evidence collection plan
+The reason is structural: **the Unraid kernel is built without `CONFIG_DETECT_HUNG_TASK`
+and without the lockup detector.** `/proc/sys/kernel/` on the affected system contains
+no `hung_task*`, `watchdog*` or `softlockup*` entries at all. The kernel cannot notice
+that it is stalled, and will never emit a hung-task warning or a soft-lockup backtrace.
 
-**Phase 1 - capture.** netconsole from the affected machine to a UDP listener on a
-separate host, so kernel output survives the lockup. Reproduce deliberately on an
-expendable machine and capture the final messages.
+The one stall detector that remains compiled in is RCU, and that is what produced the
+trace above - after lowering `rcu_cpu_stall_timeout` from 60 to 10 seconds.
 
-**Phase 2 - mitigations to A/B**, neither requiring code changes:
+## Capture method
 
-1. `i2c_i801.disable_features=0x10` on the kernel command line, forcing SMBus
-   polling instead of interrupt mode.
-2. Raise `LED_REFRESH_INTERVAL` and reduce the netdev trigger to `link` only,
-   removing the large majority of bus traffic.
+`netconsole` is unavailable on this platform: not built in, and not shipped as a
+module. What worked instead:
 
-**Phase 3 - driver fix**, directed by whatever Phase 1 shows. Candidate directions,
-to be confirmed rather than assumed:
+- **Remote syslog forwarding** to a collector on another host. This carried the full
+  NMI backtrace off the machine in real time and is what produced the trace above.
+- **`syslog_flash="1"`** (an Unraid setting, already enabled by default here), which
+  mirrors syslog to the boot volume and survives a hard power cycle.
+- **`efi_pstore`**, registered as a persistent store backend, for panic dumps.
+- `rcu_cpu_stall_timeout` lowered 60 -> 10 seconds, and `printk` raised, so the one
+  remaining stall detector fires quickly.
+- An **external liveness prober** on the collector host, so the moment of death is
+  timestamped from outside the machine that is dying.
 
-- a consecutive-failure ceiling after which the driver stops issuing transactions
-- coalescing or rate-limiting LED updates so queued work cannot outrun the bus
-- reconsidering unbounded retry-with-sleep while holding a shared mutex
+Anyone else investigating this should set up remote syslog first. The machine cannot
+tell you what happened after it happens.
+
+## Remaining work
+
+1. Determine why the `status_show` mutex acquisition never completes.
+2. Fix the driver accordingly. Independently of the lock defect, the discarded bounds
+   check in `status_show` and the phantom LED registration are both defects worth
+   fixing on their own merits.
+3. Re-test the mitigations that are now known *not* to be root cause but may still
+   reduce exposure: `i2c_i801.disable_features=0x10` (forces SMBus polling) and a
+   longer `LED_REFRESH_INTERVAL`.
 
 ## Upstream references
 
