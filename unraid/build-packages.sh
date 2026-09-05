@@ -5,6 +5,11 @@
 #   ugreen-leds-unraid-<date>.txz          userspace scripts, kernel independent
 #   ugreen_leds-<date>-<kver>-1.txz        kernel module, one per Unraid kernel
 #
+# Old userspace packages are kept in the repository on purpose. raw.githubusercontent
+# caches for several minutes, so a client can fetch a stale plg that still names the
+# previous version. If that package has been deleted the install fails with a 404
+# partway through. Retaining them costs a few KB and removes the failure window.
+#
 # The module package carries a module.meta recording what it was built against.
 # install-ugreen-leds refuses to load a module whose meta does not match the
 # running kernel, which is the whole point: vermagic cannot detect a
