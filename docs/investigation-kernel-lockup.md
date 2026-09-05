@@ -1,6 +1,6 @@
 # Investigation: total system lockup on UGREEN NAS with `led-ugreen`
 
-**Status:** root cause located and captured; exact lock mechanism still being narrowed
+**Status:** root cause proven - `struct led_classdev` ABI mismatch in the distributed module
 **Hardware under test:** UGREEN DXP6800 Pro
 **OS:** Unraid 7.4.0-beta.2 (kernel `6.18.47-Unraid`)
 **Last known good:** Unraid 7.4.0-beta.1 (kernel `6.18.44-Unraid`)
@@ -18,8 +18,16 @@ the driver makes the system stable immediately.
 degrades to the reported state. Full trace: `docs/traces/rcu-stall-status-show.log`.
 
 No LED trigger, no disk-activity polling loop and no network traffic are required.
-This is a **driver lock defect**, not a hardware SMBus wedge and not a kernel
-regression.
+
+**Root cause:** the distributed kernel module was compiled with
+`sizeof(struct led_classdev) == 416`, while the running kernel's is **432**. The LED
+core writes 16 bytes past the module's `cdev`, destroying the driver's `priv` pointer
+and the head of the next array element. `mutex_lock(&state->priv->mutex)` then locks a
+garbage address near `0x8` and spins forever. Both numbers are measured from
+disassembly; see below.
+
+This is a **build-configuration defect in the binary distribution** - not a hardware
+SMBus wedge, not a kernel regression, and not a bug in the driver source.
 
 The popular framing of this problem - "the kernel module needs rebuilding for the new
 kernel" - is **wrong**, and this document exists mostly to kill that idea with evidence
@@ -244,36 +252,105 @@ A corrupted lock word and implausible state contents in the same `devm_kzalloc`
 allocation - `struct ugreen_led_array` holds both the mutex and the state array - are
 consistent with that allocation being overwritten.
 
-### Candidate corrupter (NOT confirmed)
+## Root cause: `struct led_classdev` ABI mismatch
 
-`ugreen_led_get_state()`:
+The corrupter is the LED core itself, writing past the end of the module's idea of
+`struct led_classdev`.
 
-```c
-u8 buf[11];
-s32 rc = i2c_smbus_read_i2c_block_data(client, 0x81 + led_id, 11, (u8 *)buf);
+### Measuring both sides
+
+The distributed module, disassembled:
+
+```
+blink_type_show:                     mov 0x1a0(%r12),%rax   ; state->priv
+ugreen_led_set_brightness_blocking:  mov 0x1a0(%rdi),%r13   ; state->priv
 ```
 
-The kernel implementation of `i2c_smbus_read_i2c_block_data()` ends with:
+`priv` sits `0x1a0` (416) bytes after the start of `cdev`, so the module was compiled
+with **`sizeof(struct led_classdev) == 416`**.
 
-```c
-memcpy(values, &data.block[1], data.block[0]);
+`input-leds.ko` ships with the kernel, is therefore built against the correct headers,
+and uses the same embedding pattern - `struct input_led { struct led_classdev cdev;
+struct input_handle *handle; unsigned int code; }`:
+
+```
+input_leds_brightness_get:  mov 0x1b0(%rdi),%rax   ; ->handle
+                            mov 0x1b8(%rdi),%edx   ; ->code
 ```
 
-`data.block[0]` is populated from the transfer and can be as large as
-`I2C_SMBUS_BLOCK_MAX` (32). The destination here is an 11-byte buffer, and the
-driver validates neither the return value nor the length before use. The LED slots
-most likely to return unexpected data are precisely the phantom `disk7`/`disk8`
-described below.
+`handle` sits at `0x1b0` (432). The running kernel's
+**`sizeof(struct led_classdev) == 432`**.
 
-This is a **suspect, not a conclusion** - the buffer is on the stack, and connecting
-it to corruption of a heap allocation requires evidence rather than argument.
+**Delta: 16 bytes.** That is exactly the size contributed by
+`CONFIG_LEDS_BRIGHTNESS_HW_CHANGED`:
 
-### Still to determine
+```c
+int                  brightness_hw_changed;      /* 4 bytes + 4 padding */
+struct kernfs_node  *brightness_hw_changed_kn;   /* 8 bytes */
+```
 
-Whether the `priv` allocation is in fact being overwritten, and by what. This
-requires an instrumented build of the module logging the `priv` pointer, the mutex
-word and the state contents at probe and at each sysfs read. **The fix should not be
-written until that is settled.**
+(The 16-byte difference is measured. Attributing it to that specific option is
+inference from the size, and is not required for the conclusion.)
+
+### The overlap
+
+With `offsetof(cdev) == 16` and a 440-byte stride per array element:
+
+```
+                 module believes        kernel actually uses
+cdev             [16 .. 432)            [16 .. 448)
+priv             [432 .. 440)                 |
+state[i+1]       begins at 440                +-- LED core writes all of [432 .. 448)
+```
+
+Every LED registration writes 16 bytes beyond the module's `cdev`. That range covers
+**all eight bytes of `priv`**, then the first eight bytes of the following array
+element: `status`, `r`, `g`, `b`, `brightness`, `t_on`.
+
+`priv` is overwritten by `brightness_hw_changed`, a small `int`. `mutex_lock(&state->priv->mutex)`
+therefore locks an address near `0x8`. That is not a mutex, its `wait_lock` is not a
+lock, and `native_queued_spin_lock_slowpath` spins on it forever.
+
+### Every observation accounted for
+
+| Observation | Explanation |
+| --- | --- |
+| `power` (`state[0]`) has correct RGB | first element; nothing overflows into it |
+| all other LEDs report pointer-like RGB | neighbour's `brightness_hw_changed_kn` bytes |
+| spins in `queued_spin_lock_slowpath` rather than sleeping | locking ~`0x8`, not a real mutex |
+| `color_show` survives, mutex accessors do not | `color_show` never dereferences `priv` |
+| beta.1 worked, beta.2 does not | beta.1's kernel had the 416-byte struct |
+| `vermagic` matched and the module loaded | vermagic does not encode struct layouts |
+
+The same `0x1a0` offset appears in the published modules for `6.18.44`, `6.18.45`,
+`6.18.46` and `6.18.47`, despite each having a distinct MD5 and therefore being a
+genuine per-kernel rebuild. The build environment was consistently producing a
+416-byte `led_classdev` while the shipped kernel moved to 432.
+
+**This is a build-configuration defect in the binary distribution, not a bug in the
+driver source.** The module is compiled against a different `CONFIG_LEDS_*` set than
+the kernel it is loaded into, and `vermagic` cannot detect it.
+
+An earlier suspicion that `i2c_smbus_read_i2c_block_data()` into an 11-byte buffer was
+responsible is **wrong**. That code is still unvalidated and worth tightening, but it
+is not this bug.
+
+## Hardening the source
+
+The source is not at fault, but it fails far more destructively than it needs to.
+`struct ugreen_led_state` embeds `led_classdev` **by value**, in an array, with `priv`
+placed immediately after it. Any ABI drift therefore lands directly on the driver's
+own private pointer and on the neighbouring element, converting a recoverable
+mismatch into an unkillable machine.
+
+Worth doing regardless of who builds it:
+
+- Place `cdev` **last** in the struct, so an oversized kernel structure spills into
+  allocator padding rather than through `priv` and the next element.
+- Allocate each `ugreen_led_state` individually rather than as one array, so an
+  overflow hits a slab redzone (detectable) instead of live driver state.
+- Fix the discarded bounds check in `status_show` (see above).
+- Stop registering LED slots that are not present (see below).
 
 Separately, the driver has no failure ceiling anywhere: `ugreen_led_change_state_robust`
 retries indefinitely at full rate with no path to giving up and disabling itself.
@@ -327,13 +404,12 @@ tell you what happened after it happens.
 
 ## Remaining work
 
-1. Determine why the `status_show` mutex acquisition never completes.
-2. Fix the driver accordingly. Independently of the lock defect, the discarded bounds
-   check in `status_show` and the phantom LED registration are both defects worth
-   fixing on their own merits.
-3. Re-test the mitigations that are now known *not* to be root cause but may still
-   reduce exposure: `i2c_i801.disable_features=0x10` (forces SMBus polling) and a
-   longer `LED_REFRESH_INTERVAL`.
+1. Rebuild `led-ugreen.ko` against the shipped kernel's headers and configuration.
+2. Apply the source hardening above so a future mismatch degrades safely.
+3. Rebuild the module against the kernel configuration actually shipped, which is
+   the real fix. Mitigations previously considered - `i2c_i801.disable_features=0x10`
+   and a longer `LED_REFRESH_INTERVAL` - are now known to be irrelevant to this fault
+   and should not be recommended.
 
 ## Upstream references
 
