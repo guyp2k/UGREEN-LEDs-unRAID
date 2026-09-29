@@ -34,7 +34,27 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 
 make_txz() {  # <staging-dir> <output-file>
     local stage="$1" out="$2"
-    ( cd "$stage" && tar -cJf "$out" . )
+
+    # installpkg applies the ownership and permissions recorded in the archive to
+    # the real filesystem, including to directories that already exist. A staging
+    # tree built by an unprivileged user therefore chowns /, /boot, /lib and /usr
+    # on every machine that installs the package. Normalise before archiving and
+    # record root ownership explicitly.
+    chmod 755 "$stage"
+    find "$stage" -type d -exec chmod 755 {} +
+    find "$stage" -type f ! -perm -u+x -exec chmod 644 {} +
+    find "$stage" -type f -perm -u+x -exec chmod 755 {} +
+
+    ( cd "$stage" && tar --owner=root --group=root -cJf "$out" . )
+
+    # Refuse to publish an archive that would alter ownership on the target.
+    if tar -tvJf "$out" | grep -qvE '^[-d][rwxst-]{9} (root/root|0/0) '; then
+        echo "ERROR: archive contains non-root entries:" >&2
+        tar -tvJf "$out" | grep -vE '^[-d][rwxst-]{9} (root/root|0/0) ' >&2
+        rm -f "$out"
+        return 1
+    fi
+
     md5sum "$out" | awk '{print $1}' > "$out.md5"
     echo "built $(basename "$out")  md5=$(cat "$out.md5")"
 }
