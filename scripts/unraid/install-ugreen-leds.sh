@@ -121,8 +121,26 @@ if [ -z "$CTRL" ]; then
     exit 1
 fi
 
-sleep 1
-rm -f /var/run/ugreen-leds-unraid.lock
+# Stop any running instance before starting a new one. Deleting the lock file
+# without stopping the process simply stacked instances, and killall by script
+# name never matched, because the process name is bash and not the script.
+LOCKFILE=/var/run/ugreen-leds-unraid.lock
+running_instances() {
+    ps -eo pid,args | awk '/\/bin\/bash \/usr\/bin\/ugreen-leds-unraid/ {print $1}'
+}
+
+oldpid="$(cat "$LOCKFILE" 2>/dev/null || true)"
+[ -n "$oldpid" ] && kill "$oldpid" 2>/dev/null
+for p in $(running_instances); do
+    kill "$p" 2>/dev/null
+done
+sleep 2
+for p in $(running_instances); do
+    log "instance $p did not stop, sending SIGKILL"
+    kill -9 "$p" 2>/dev/null
+done
+
+rm -f "$LOCKFILE"
 setsid nohup "$CTRL" > /var/log/ugreen-leds.log 2>&1 < /dev/null &
 sleep 2
 if pgrep -f "$CTRL" >/dev/null 2>&1; then

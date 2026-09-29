@@ -3,8 +3,8 @@
   <!ENTITY name        "UGREEN-LEDs-unRAID">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "UGREEN-LEDs-unRAID">
-  <!ENTITY version     "2026.09.29c">
-  <!ENTITY md5         "2f3d04b705682212184696b6a0a377ed">
+  <!ENTITY version     "2026.09.29d">
+  <!ENTITY md5         "6684677fd50029408351b3b58491b079">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -17,6 +17,12 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.3">
 
 <CHANGES>
+
+###2026.09.29d
+- Fix the control script stacking multiple instances. A signal trap that did not
+  exit let it survive a kill while deleting its own lock file, the loader removed
+  the lock before starting a new copy, and killall by script name never matched
+  because the process name is bash. Four instances had accumulated in testing.
 
 ###2026.09.29c
 - The ownership repair now runs after the kernel module package is installed, not
@@ -73,8 +79,12 @@
 <!-- Stop anything already running before we replace it. -->
 <FILE Run="/bin/bash">
 <INLINE>
-killall -q ugreen-leds-unraid 2&gt;/dev/null
-rm -f /var/run/ugreen-leds-unraid.lock
+# The control script runs as "bash /usr/bin/ugreen-leds-unraid", so its process
+# name is bash; killall by script name never matched it. The loader stops any
+# running instance properly before it starts a new one.
+for p in $(ps -eo pid,args | awk '/\/bin\/bash \/usr\/bin\/ugreen-leds-unraid/ {print $1}'); do
+  kill "$p" 2&gt;/dev/null
+done
 
 # This plugin was previously named ugreen-leds-unraid. Remove that installation
 # so the two cannot sit side by side in the plugins list. The control script and
@@ -223,8 +233,13 @@ echo
 
 echo "--------------- Removing UGREEN LED control ---------------"
 
-killall -q ugreen-leds-unraid 2&gt;/dev/null
-sleep 1
+for p in $(ps -eo pid,args | awk '/\/bin\/bash \/usr\/bin\/ugreen-leds-unraid/ {print $1}'); do
+  kill "$p" 2&gt;/dev/null
+done
+sleep 2
+for p in $(ps -eo pid,args | awk '/\/bin\/bash \/usr\/bin\/ugreen-leds-unraid/ {print $1}'); do
+  kill -9 "$p" 2&gt;/dev/null
+done
 rm -f /var/run/ugreen-leds-unraid.lock
 
 # Turn the LEDs off before we let go of them.
