@@ -3,8 +3,8 @@
   <!ENTITY name        "UGREEN-LEDs-unRAID">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "UGREEN-LEDs-unRAID">
-  <!ENTITY version     "2026.09.05f">
-  <!ENTITY md5         "dbac11b6aebe4e4bdf4e45a761b14e35">
+  <!ENTITY version     "2026.09.29">
+  <!ENTITY md5         "9d700a2c407ab069fa520c4cdd5a5f42">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -14,9 +14,13 @@
   <!ENTITY packages    "&plugin;/packages">
 ]>
 
-<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.2">
+<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.3">
 
 <CHANGES>
+
+###2026.09.29
+- Support Unraid 7.4.0-beta.3 (kernel 6.18.52-Unraid). A module for that kernel is
+  published as a release; the plugin fetches it automatically.
 
 ###2026.09.05f
 - Network LED colours: 10 Gbit is now dark blue (was cyan), 1 Gbit is now green

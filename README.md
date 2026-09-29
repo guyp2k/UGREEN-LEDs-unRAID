@@ -19,11 +19,11 @@ https://github.com/guyp2k/UGREEN-LEDs-unRAID/raw/master/unraid/UGREEN-LEDs-unRAI
 
 | | |
 |---|---|
-| **Tested on** | Unraid 7.4.0-beta.2 (kernel `6.18.47-Unraid`) |
+| **Tested on** | Unraid 7.4.0-beta.2 (`6.18.47-Unraid`), 7.4.0-beta.3 (`6.18.52-Unraid`) |
 | **Tested hardware** | UGREEN DXP6800 Pro |
 
-The plugin is **version capped to 7.4.0-beta.2** and will not install on any other
-Unraid release, because every Unraid version ships a different kernel and needs a
+The plugin is **version capped to the releases listed above** and will not install on
+any other Unraid release, because every Unraid version ships a different kernel and needs a
 module built for it. Other UGREEN models are supported by the driver but are untested
 here; on those the LED-to-bay mapping may be wrong.
 

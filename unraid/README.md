@@ -8,11 +8,11 @@ plugin's prebuilt kernel module started hard-locking machines on Unraid
 >
 > | | |
 > |---|---|
-> | **Unraid** | 7.4.0-beta.2 only (kernel `6.18.47-Unraid`) |
+> | **Unraid** | 7.4.0-beta.2 (`6.18.47-Unraid`) and 7.4.0-beta.3 (`6.18.52-Unraid`) |
 > | **Hardware** | UGREEN DXP6800 Pro only |
 >
-> The plugin is **version capped to 7.4.0-beta.2** and will not install on any
-> other Unraid release. Every Unraid version ships a different kernel and needs
+> The plugin is **version capped to the releases listed above** and will not install
+> on any other Unraid release. Every Unraid version ships a different kernel and needs
 > a module built specifically for it.
 >
 > Other UGREEN models are supported by the underlying driver but have **not**
