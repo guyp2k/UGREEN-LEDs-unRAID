@@ -56,7 +56,12 @@ if [ -e "$LOCKFILE" ] && kill -0 "$(cat "$LOCKFILE" 2>/dev/null)" 2>/dev/null; t
     echo "already running (pid $(cat "$LOCKFILE"))" >&2
     exit 1
 fi
-trap cleanup EXIT INT TERM
+# A trap on a signal runs its handler and then resumes unless the handler exits.
+# Trapping INT and TERM on cleanup alone removed the lock file and kept running,
+# which made the process survive a kill and let the next start stack a second
+# instance on top of it. Exit on the signal and let the EXIT trap clean up.
+trap cleanup EXIT
+trap 'exit 0' INT TERM
 echo $$ > "$LOCKFILE"
 
 # ---------------------------------------------------------------- bay mapping
