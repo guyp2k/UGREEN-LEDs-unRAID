@@ -54,8 +54,17 @@ if [ -n "$HOST" ]; then
     CONFIG="$WORKDIR/config-$KVER"
     scp -q "$HOST:/lib/modules/$KVER/build/config" "$CONFIG" \
         || die "could not fetch /lib/modules/$KVER/build/config from $HOST"
+    # /proc/kallsyms only lists symbols from modules that are currently loaded.
+    # The LED driver's dependencies are not resident when the driver itself is not
+    # loaded, which is exactly the situation after an Unraid upgrade. Load them
+    # first, or their exports are missing and modpost cannot resolve them.
+    ssh "$HOST" 'for m in led-class i2c-core i2c-dev ledtrig-oneshot; do modprobe "$m" 2>/dev/null; done' || true
     KALLSYMS="$WORKDIR/kallsyms-$KVER"
     ssh "$HOST" 'cat /proc/kallsyms' > "$KALLSYMS" 2>/dev/null || KALLSYMS=""
+
+    if [ -s "$KALLSYMS" ] && ! grep -q '__ksymtab_led_classdev_register_ext' "$KALLSYMS"; then
+        die "led-class exports missing from $HOST after modprobe; cannot build a module with correct depends="
+    fi
 fi
 
 [ -n "$KVER" ]   || die "need --kver or --from-host"
@@ -137,8 +146,17 @@ esac
 # ------------------------------------------------------------------- release
 if [ "$DO_RELEASE" -eq 1 ]; then
     command -v gh >/dev/null || die "gh is required for --release"
-    info "creating release $KVER"
-    gh release create "$KVER" \
+
+    # Target the repository the plugin actually fetches from, read from the plg
+    # itself. Letting gh infer it from the working directory picked up a stale
+    # repository id after the project was transferred and renamed, and the release
+    # call failed with a 404.
+    PLG="$REPO/unraid/UGREEN-LEDs-unRAID.plg"
+    GH_OWNER="$(grep -oP '<!ENTITY author\s+"\K[^"]+' "$PLG" 2>/dev/null || true)"
+    GH_REPO="$(grep -oP '<!ENTITY repo\s+"\K[^"]+' "$PLG" 2>/dev/null || true)"
+    [ -n "$GH_OWNER" ] && [ -n "$GH_REPO" ] || die "could not read author/repo entities from $PLG"
+    info "creating release $KVER in $GH_OWNER/$GH_REPO"
+    gh release create "$KVER" -R "$GH_OWNER/$GH_REPO" \
         --title "Kernel module for $KVER" \
         --notes "led-ugreen built against the kernel configuration Unraid ships with $KVER.
 
