@@ -3,8 +3,8 @@
   <!ENTITY name        "UGREEN-LEDs-unRAID">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "UGREEN-LEDs-unRAID">
-  <!ENTITY version     "2026.09.29">
-  <!ENTITY md5         "9d700a2c407ab069fa520c4cdd5a5f42">
+  <!ENTITY version     "2026.09.29a">
+  <!ENTITY md5         "4ff8865350b36b924e2420b41efe12da">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -17,6 +17,10 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.3">
 
 <CHANGES>
+
+###2026.09.29a
+- Install banner now lists both supported Unraid releases; it still named only
+  beta.2 after beta.3 support was added.
 
 ###2026.09.29
 - Support Unraid 7.4.0-beta.3 (kernel 6.18.52-Unraid). A module for that kernel is
@@ -91,6 +95,7 @@ echo "======================================================================"
 echo " UGREEN LED control"
 echo
 echo " TESTED ON : Unraid 7.4.0-beta.2 (kernel 6.18.47-Unraid)"
+echo "             Unraid 7.4.0-beta.3 (kernel 6.18.52-Unraid)"
 echo "             UGREEN DXP6800 Pro"
 echo
 echo " Other UGREEN models are supported by the driver but are UNTESTED here."
