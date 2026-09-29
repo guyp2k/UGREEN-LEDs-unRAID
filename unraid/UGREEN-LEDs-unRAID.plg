@@ -3,8 +3,8 @@
   <!ENTITY name        "UGREEN-LEDs-unRAID">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "UGREEN-LEDs-unRAID">
-  <!ENTITY version     "2026.09.29b">
-  <!ENTITY md5         "96d73baba6201421cd72bdd91a26ed68">
+  <!ENTITY version     "2026.09.29c">
+  <!ENTITY md5         "2f3d04b705682212184696b6a0a377ed">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -17,6 +17,11 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.3">
 
 <CHANGES>
+
+###2026.09.29c
+- The ownership repair now runs after the kernel module package is installed, not
+  before. Republished the module packages for 6.18.47 and 6.18.52, which were still
+  archived with the old non-root ownership and undid the repair moments after it ran.
 
 ###2026.09.29b
 - SECURITY/CORRECTNESS: packages up to 2026.09.29a were archived with the build
@@ -74,28 +79,6 @@ rm -f /var/run/ugreen-leds-unraid.lock
 # This plugin was previously named ugreen-leds-unraid. Remove that installation
 # so the two cannot sit side by side in the plugins list. The control script and
 # loader binaries are the same in both, and the new package reinstalls them.
-# Packages before 2026.09.29b were archived from a staging tree owned by the build
-# user, and installpkg applies the ownership and permissions recorded in an archive
-# to directories that already exist. Installing them chowned /, /boot, /lib and /usr
-# to a uid that does not exist here and made them group writable. Among other things
-# sshd then refuses every key with
-#   Authentication refused: bad ownership or modes for directory /boot/config
-# Repair the directories those packages touched. Ownership and the group/other write
-# bits only; nothing else is altered.
-for d in / /boot /boot/config /lib /lib/modules /usr /usr/local \
-         /usr/local/emhttp /usr/local/emhttp/plugins /usr/bin; do
-  [ -d "$d" ] || continue
-  own="$(stat -c '%U:%G' "$d" 2>/dev/null)"
-  if [ "$own" != "root:root" ]; then
-    echo "repairing owner of $d (was $own)"
-    chown root:root "$d" 2>/dev/null
-  fi
-  if [ -n "$(find "$d" -maxdepth 0 -perm /022 2>/dev/null)" ]; then
-    echo "removing group/other write from $d"
-    chmod go-w "$d" 2>/dev/null
-  fi
-done
-
 OLD=ugreen-leds-unraid
 if [ -e /boot/config/plugins/${OLD} ] || [ -e /boot/config/plugins/${OLD}.plg ]; then
   echo "Removing the previously named plugin (${OLD})"
@@ -192,6 +175,29 @@ MODPKG="$(ls -1 "$PKGDIR"/${PACKAGE}*.txz 2&gt;/dev/null | head -1)"
 
 /sbin/installpkg "$MODPKG" &gt;/dev/null 2&gt;&amp;1
 /sbin/depmod -a &gt;/dev/null 2&gt;&amp;1
+
+# Packages before 2026.09.29b were archived from a staging tree owned by the build
+# user, and installpkg applies the ownership and permissions recorded in an archive
+# to directories that already exist. Installing them chowned /, /boot, /lib and /usr
+# to a uid that does not exist here and made them group writable. Among other things
+# sshd then refuses every key with
+#   Authentication refused: bad ownership or modes for directory /boot/config
+# Repair the directories those packages touched. Ownership and the group/other write
+# bits only; nothing else is altered.
+for d in / /boot /boot/config /lib /lib/modules /usr /usr/local \
+         /usr/local/emhttp /usr/local/emhttp/plugins /usr/bin; do
+  [ -d "$d" ] || continue
+  own="$(stat -c '%U:%G' "$d" 2>/dev/null)"
+  if [ "$own" != "root:root" ]; then
+    echo "repairing owner of $d (was $own)"
+    chown root:root "$d" 2>/dev/null
+  fi
+  if [ -n "$(find "$d" -maxdepth 0 -perm /022 2>/dev/null)" ]; then
+    echo "removing group/other write from $d"
+    chmod go-w "$d" 2>/dev/null
+  fi
+done
+
 
 # The loader verifies the module's recorded build config against the running
 # kernel and refuses to load on a mismatch. That check is the reason this
