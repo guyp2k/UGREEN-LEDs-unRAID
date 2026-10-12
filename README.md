@@ -19,7 +19,7 @@ https://github.com/guyp2k/UGREEN-LEDs-unRAID/raw/master/unraid/UGREEN-LEDs-unRAI
 
 | | |
 |---|---|
-| **Tested on** | Unraid 7.4.0-beta.2 (`6.18.47-Unraid`), 7.4.0-beta.3 (`6.18.52-Unraid`) |
+| **Tested on** | Unraid 7.4.0-beta.2 (`6.18.47-Unraid`), 7.4.0-beta.3 (`6.18.52-Unraid`), 7.4.0-rc.1 (`6.18.54-Unraid`) |
 | **Tested hardware** | UGREEN DXP6800 Pro |
 
 The plugin is **version capped to the releases listed above** and will not install on

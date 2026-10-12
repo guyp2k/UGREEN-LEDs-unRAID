@@ -3,8 +3,8 @@
   <!ENTITY name        "UGREEN-LEDs-unRAID">
   <!ENTITY author      "guyp2k">
   <!ENTITY repo        "UGREEN-LEDs-unRAID">
-  <!ENTITY version     "2026.09.29d">
-  <!ENTITY md5         "6684677fd50029408351b3b58491b079">
+  <!ENTITY version     "2026.10.11">
+  <!ENTITY md5         "a7bfb9ade12e5bbb133fa3997e6188bd">
   <!ENTITY gitURL      "https://github.com/&author;/&repo;/raw/master/unraid">
   <!ENTITY relURL      "https://github.com/&author;/&repo;/releases/download">
   <!ENTITY apiURL      "https://api.github.com/repos/&author;/&repo;/releases/tags">
@@ -14,9 +14,13 @@
   <!ENTITY packages    "&plugin;/packages">
 ]>
 
-<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-beta.3">
+<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" min="7.4.0-beta.2" max="7.4.0-rc.1">
 
 <CHANGES>
+
+###2026.10.11
+- Support Unraid 7.4.0-rc.1 (kernel 6.18.54-Unraid). A module for that kernel is
+  published as a release; the plugin fetches it automatically.
 
 ###2026.09.29d
 - Fix the control script stacking multiple instances. A signal trap that did not
@@ -120,6 +124,7 @@ echo " UGREEN LED control"
 echo
 echo " TESTED ON : Unraid 7.4.0-beta.2 (kernel 6.18.47-Unraid)"
 echo "             Unraid 7.4.0-beta.3 (kernel 6.18.52-Unraid)"
+echo "             Unraid 7.4.0-rc.1 (kernel 6.18.54-Unraid)"
 echo "             UGREEN DXP6800 Pro"
 echo
 echo " Other UGREEN models are supported by the driver but are UNTESTED here."
