@@ -8,7 +8,7 @@ plugin's prebuilt kernel module started hard-locking machines on Unraid
 >
 > | | |
 > |---|---|
-> | **Unraid** | 7.4.0-beta.2 (`6.18.47-Unraid`) and 7.4.0-beta.3 (`6.18.52-Unraid`) |
+> | **Unraid** | 7.4.0-beta.2 (`6.18.47-Unraid`), 7.4.0-beta.3 (`6.18.52-Unraid`) and 7.4.0-rc.1 (`6.18.54-Unraid`) |
 > | **Hardware** | UGREEN DXP6800 Pro only |
 >
 > The plugin is **version capped to the releases listed above** and will not install
@@ -214,4 +214,5 @@ In the Unraid GUI: **Plugins > Install Plugin**, paste:
 https://github.com/guyp2k/UGREEN-LEDs-unRAID/raw/master/unraid/UGREEN-LEDs-unRAID.plg
 ```
 
-The plugin will refuse to install on any Unraid release other than 7.4.0-beta.2.
+The plugin will refuse to install on any Unraid release outside 7.4.0-beta.2 to
+7.4.0-rc.1.
